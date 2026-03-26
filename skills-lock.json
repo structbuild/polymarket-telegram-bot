@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "struct-sdk": {
+      "source": "structbuild/struct-skill",
+      "sourceType": "github",
+      "computedHash": "eaa4d00dc350e32618240cbc78f014b6a0c8b09f253c212a059281e2e82c808e"
+    }
+  }
+}

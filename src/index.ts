@@ -1,0 +1,28 @@
+import "./env.js";
+import { bot } from "./bot.js";
+import { run, sequentialize } from "@grammyjs/runner";
+import type { BotContext } from "./bot.js";
+
+function getSessionKey(ctx: BotContext) {
+  return ctx.chat?.id.toString();
+}
+
+bot.use(sequentialize(getSessionKey));
+
+const runner = run(bot, {
+  runner: {
+    fetch: {
+      allowed_updates: ["message", "callback_query", "inline_query"],
+    },
+  },
+});
+
+bot.api.setMyCommands([
+  { command: "start", description: "Welcome message and how to use the bot" },
+]);
+
+runner.task()?.then(() => console.log("Bot stopped"));
+console.log("Bot is running");
+
+process.once("SIGINT", () => runner.stop());
+process.once("SIGTERM", () => runner.stop());
