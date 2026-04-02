@@ -19,7 +19,7 @@ import {
 import { buildTopHoldersKeyboard } from "./top-holders.js";
 import { fetchTraderProfile, fetchTraderPnl } from "./trader.fetch.js";
 
-async function replyWithEvent(ctx: BotContext, slug: string) {
+export async function replyWithEvent(ctx: BotContext, slug: string) {
   const event = await fetchEventBySlug(slug);
   if (!event) {
     await replyMissingEvent(ctx);

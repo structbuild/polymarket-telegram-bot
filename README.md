@@ -8,6 +8,7 @@ Open-source Telegram bot for Polymarket prediction markets. Look up real-time od
 
 - **Market Lookup** — Send any Polymarket URL to get live odds, volume, liquidity, and outcome prices
 - **Event Overview** — Paste an event link to see all markets within it, with paginated navigation
+- **Event Search** — Use `/s <query>` or `/search <query>` to find Polymarket events by name
 - **Trader Profiles** — Send a wallet address (`0x...`) to view a trader's lifetime P&L, win rate, and stats
 - **Top Holders** — Tap the inline button on any market to see the top 5 holders per outcome
 - **Deep Links** — Share bot links with embedded market slugs or condition IDs that auto-load on open
@@ -15,8 +16,8 @@ Open-source Telegram bot for Polymarket prediction markets. Look up real-time od
 ## How It Works
 
 ```
-User sends Polymarket URL or wallet address
-  → Bot parses input type (market, event, or trader)
+User sends a Polymarket URL, wallet address, or `/search` query
+  → Bot parses input type (market, event, trader, or event search)
   → Fetches data from Struct API
   → Formats and replies with rich Telegram messages + inline buttons
 ```
