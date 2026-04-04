@@ -85,7 +85,7 @@ bot.command("start", async (ctx) => {
       const market = markets[0];
       const caption = formatMarket(market, event.metrics);
       const marketSlug = market.market_slug ?? market.slug;
-      const keyboard = marketSlug ? buildTopHoldersKeyboard(marketSlug) : undefined;
+      const keyboard = marketSlug ? buildTopHoldersKeyboard(marketSlug, market.event_slug, market.question ?? market.title) : undefined;
 
       if (market.image_url ?? event.image_url) {
         try {
@@ -141,7 +141,7 @@ bot.command("start", async (ctx) => {
   }
   const caption = formatMarket(market);
   const marketSlug = market.market_slug ?? market.slug;
-  const keyboard = marketSlug ? buildTopHoldersKeyboard(marketSlug) : undefined;
+  const keyboard = marketSlug ? buildTopHoldersKeyboard(marketSlug, market.event_slug, market.question ?? market.title) : undefined;
   if (market.image_url) {
     try {
       await ctx.api.sendPhoto(chatId, market.image_url, {

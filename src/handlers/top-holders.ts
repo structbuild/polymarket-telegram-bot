@@ -4,25 +4,31 @@ import { formatTopHolders } from "../format/holders.js";
 import { struct } from "../struct.js";
 
 const MAX_CACHE_SIZE = 500;
-const marketCache = new Map<number, string>();
+
+type CachedMarket = { slug: string; eventSlug?: string; question?: string };
+const marketCache = new Map<number, CachedMarket>();
 let nextId = 1;
 
-export function cacheMarketSlug(slug: string): number {
+export function cacheMarketSlug(slug: string, eventSlug?: string, question?: string): number {
   if (marketCache.size >= MAX_CACHE_SIZE) {
     const firstKey = marketCache.keys().next().value!;
     marketCache.delete(firstKey);
   }
   const id = nextId++;
-  marketCache.set(id, slug);
+  marketCache.set(id, { slug, eventSlug, question });
   return id;
 }
 
 export function getCachedMarketSlug(id: number): string | undefined {
+  return marketCache.get(id)?.slug;
+}
+
+export function getCachedMarketInfo(id: number): CachedMarket | undefined {
   return marketCache.get(id);
 }
 
-export function buildTopHoldersKeyboard(marketSlug: string): InlineKeyboard {
-  const cacheId = cacheMarketSlug(marketSlug);
+export function buildTopHoldersKeyboard(marketSlug: string, eventSlug?: string, question?: string): InlineKeyboard {
+  const cacheId = cacheMarketSlug(marketSlug, eventSlug, question);
   return new InlineKeyboard()
     .text("👥 Top Holders", `th:${cacheId}`)
     .text("⚡ Price Jumps", `pj:${cacheId}`)
@@ -35,9 +41,9 @@ export async function handleTopHolders(ctx: BotContext) {
   if (!data?.startsWith("th:")) return;
 
   const cacheId = parseInt(data.split(":")[1], 10);
-  const slug = marketCache.get(cacheId);
+  const cached = marketCache.get(cacheId);
 
-  if (!slug) {
+  if (!cached) {
     await ctx.answerCallbackQuery({
       text: "Session expired. Send the link again.",
     });
@@ -46,7 +52,7 @@ export async function handleTopHolders(ctx: BotContext) {
 
   try {
     const response = await struct.holders.getMarketHolders({
-      market_slug: slug,
+      market_slug: cached.slug,
       limit: 5,
     });
 

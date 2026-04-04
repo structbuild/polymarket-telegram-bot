@@ -1,4 +1,4 @@
-import { formatUsd } from "./shared.js";
+import { escapeHtml, formatUsd } from "./shared.js";
 
 interface PriceJump {
   from: number;
@@ -27,16 +27,20 @@ function formatPrice(price: number): string {
   return `${(price * 100).toFixed(1)}¢`;
 }
 
-export function formatPriceJumps(jumps: PriceJump[], page: number, pageSize: number): string {
+export function formatPriceJumps(jumps: PriceJump[], page: number, pageSize: number, marketUrl?: string, question?: string): string {
+  const footer = marketUrl ? `\n\n🔗 <a href="${marketUrl}">View on Polymarket</a>` : "";
+  const questionSuffix = question ? ` on \n<i>${escapeHtml(question)}</i>` : "";
+  const subtitle = `<i>Showing &gt;10% price jumps in 30-minute windows${questionSuffix}</i>`;
+
   if (jumps.length === 0) {
-    return "⚡ <b>Price Jumps</b>\n<i>Showing &gt;10% price jumps in 30-minute windows</i>\n\nNo significant price jumps found.";
+    return `⚡ <b>Price Jumps</b>\n${subtitle}\n\nNo significant price jumps found.${footer}`;
   }
 
   const totalPages = Math.ceil(jumps.length / pageSize);
   const slice = jumps.slice(page * pageSize, (page + 1) * pageSize);
   const lines: string[] = [
     `⚡ <b>Price Jumps</b>  <i>(${page + 1}/${totalPages})</i>`,
-    "<i>Showing &gt;10% price jumps in 30-minute windows</i>",
+    subtitle,
     "",
   ];
 
@@ -51,5 +55,7 @@ export function formatPriceJumps(jumps: PriceJump[], page: number, pageSize: num
     lines.push("");
   }
 
-  return lines.join("\n").trimEnd();
+  let text = lines.join("\n").trimEnd();
+  if (footer) text += footer;
+  return text;
 }

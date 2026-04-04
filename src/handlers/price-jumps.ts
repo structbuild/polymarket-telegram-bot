@@ -2,7 +2,7 @@ import { InlineKeyboard } from "grammy";
 import type { BotContext } from "../bot.js";
 import { formatPriceJumps } from "../format/price-jumps.js";
 import { struct } from "../struct.js";
-import { getCachedMarketSlug } from "./top-holders.js";
+import { getCachedMarketInfo } from "./top-holders.js";
 
 export const PRICE_JUMPS_PAGE_SIZE = 7;
 const MAX_CACHE_SIZE = 500;
@@ -21,28 +21,33 @@ type PriceJumpEntry = {
 
 const CACHE_TTL_MS = 3 * 60 * 1000;
 
-type CachedJumps = { jumps: PriceJumpEntry[]; expiresAt: number };
+type CachedJumps = { jumps: PriceJumpEntry[]; marketUrl?: string; question?: string; expiresAt: number };
 const jumpsCache = new Map<number, CachedJumps>();
 let nextId = 1;
 
-function cacheJumps(jumps: PriceJumpEntry[]): number {
+function cacheJumps(jumps: PriceJumpEntry[], marketUrl?: string, question?: string): number {
   if (jumpsCache.size >= MAX_CACHE_SIZE) {
     const firstKey = jumpsCache.keys().next().value!;
     jumpsCache.delete(firstKey);
   }
   const id = nextId++;
-  jumpsCache.set(id, { jumps, expiresAt: Date.now() + CACHE_TTL_MS });
+  jumpsCache.set(id, { jumps, marketUrl, question, expiresAt: Date.now() + CACHE_TTL_MS });
   return id;
 }
 
-function getCachedJumps(id: number): PriceJumpEntry[] | undefined {
+function getCachedJumps(id: number): CachedJumps | undefined {
   const entry = jumpsCache.get(id);
   if (!entry) return undefined;
   if (Date.now() > entry.expiresAt) {
     jumpsCache.delete(id);
     return undefined;
   }
-  return entry.jumps;
+  return entry;
+}
+
+function buildMarketUrl(marketSlug: string, eventSlug?: string): string | undefined {
+  if (!eventSlug) return undefined;
+  return `https://polymarket.com/event/${eventSlug}/${marketSlug}`;
 }
 
 function buildPriceJumpsPaginationKeyboard(
@@ -64,9 +69,9 @@ export async function handlePriceJumps(ctx: BotContext) {
   if (!data?.startsWith("pj:")) return;
 
   const cacheId = parseInt(data.split(":")[1], 10);
-  const slug = getCachedMarketSlug(cacheId);
+  const marketInfo = getCachedMarketInfo(cacheId);
 
-  if (!slug) {
+  if (!marketInfo) {
     await ctx.answerCallbackQuery({
       text: "Session expired. Send the link again.",
     });
@@ -75,8 +80,11 @@ export async function handlePriceJumps(ctx: BotContext) {
 
   await ctx.answerCallbackQuery();
 
+  const marketUrl = buildMarketUrl(marketInfo.slug, marketInfo.eventSlug);
+  const question = marketInfo.question;
+
   try {
-    const response = await struct.markets.getPriceJumps({ market_slug: slug, resolution: "30" });
+    const response = await struct.markets.getPriceJumps({ market_slug: marketInfo.slug, resolution: "30" });
 
     if (!response.data) {
       await ctx.reply("❌ Could not fetch price jumps for this market.");
@@ -84,7 +92,7 @@ export async function handlePriceJumps(ctx: BotContext) {
     }
 
     const jumps = response.data;
-    const text = formatPriceJumps(jumps, 0, PRICE_JUMPS_PAGE_SIZE);
+    const text = formatPriceJumps(jumps, 0, PRICE_JUMPS_PAGE_SIZE, marketUrl, question);
 
     if (jumps.length <= PRICE_JUMPS_PAGE_SIZE) {
       const keyboard = new InlineKeyboard().text("✕ Close", "close");
@@ -96,7 +104,7 @@ export async function handlePriceJumps(ctx: BotContext) {
       return;
     }
 
-    const jumpsCacheId = cacheJumps(jumps);
+    const jumpsCacheId = cacheJumps(jumps, marketUrl, question);
     const keyboard = buildPriceJumpsPaginationKeyboard(jumpsCacheId, 0, jumps.length);
     await ctx.reply(text, {
       parse_mode: "HTML",
@@ -122,15 +130,15 @@ export async function handlePriceJumpsPagination(ctx: BotContext) {
   }
 
   const page = parseInt(action, 10);
-  const jumps = getCachedJumps(cacheId);
+  const cached = getCachedJumps(cacheId);
 
-  if (!jumps) {
+  if (!cached) {
     await ctx.answerCallbackQuery({ text: "Session expired. Send the link again." });
     return;
   }
 
-  const text = formatPriceJumps(jumps, page, PRICE_JUMPS_PAGE_SIZE);
-  const keyboard = buildPriceJumpsPaginationKeyboard(cacheId, page, jumps.length);
+  const text = formatPriceJumps(cached.jumps, page, PRICE_JUMPS_PAGE_SIZE, cached.marketUrl, cached.question);
+  const keyboard = buildPriceJumpsPaginationKeyboard(cacheId, page, cached.jumps.length);
 
   await ctx.editMessageText(text, {
     parse_mode: "HTML",
