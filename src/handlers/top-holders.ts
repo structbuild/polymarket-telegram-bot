@@ -17,10 +17,16 @@ export function cacheMarketSlug(slug: string): number {
   return id;
 }
 
+export function getCachedMarketSlug(id: number): string | undefined {
+  return marketCache.get(id);
+}
+
 export function buildTopHoldersKeyboard(marketSlug: string): InlineKeyboard {
   const cacheId = cacheMarketSlug(marketSlug);
   return new InlineKeyboard()
     .text("👥 Top Holders", `th:${cacheId}`)
+    .text("⚡ Price Jumps", `pj:${cacheId}`)
+    .row()
     .text("✕ Close", "close");
 }
 

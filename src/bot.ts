@@ -18,6 +18,7 @@ import {
 import { handlePolymarketLink } from "./handlers/polymarket-link.js";
 import { handleSearch } from "./handlers/search.js";
 import { buildTopHoldersKeyboard, handleTopHolders } from "./handlers/top-holders.js";
+import { handlePriceJumps, handlePriceJumpsPagination } from "./handlers/price-jumps.js";
 
 export type BotContext = Context & MenuFlavor;
 
@@ -162,6 +163,8 @@ bot.on("callback_query:data", async (ctx) => {
   const data = ctx.callbackQuery?.data;
   if (data?.startsWith("ep:")) return handleEventPagination(ctx);
   if (data?.startsWith("th:")) return handleTopHolders(ctx);
+  if (data?.startsWith("pj:")) return handlePriceJumps(ctx);
+  if (data?.startsWith("pp:")) return handlePriceJumpsPagination(ctx);
   if (data === "close") {
     await ctx.deleteMessage();
     await ctx.answerCallbackQuery();
