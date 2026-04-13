@@ -2,7 +2,7 @@ import type { BotContext } from "../bot.js";
 import type { MarketRecord } from "../format/types.js";
 import { formatMarket, normalizeMarketTimeframe, withLastUpdatedFooter } from "../format.js";
 import { setPreferredMarketTimeframe } from "./market-timeframe-prefs.js";
-import { editPolymarketReply, allocRefreshPayload } from "./polymarket-refresh.js";
+import { allocMarketRefreshPayload, editPolymarketReply } from "./polymarket-refresh.js";
 import { fetchMarketBySlug } from "./polymarket-link.fetch.js";
 import {
   buildMarketDetailKeyboard,
@@ -44,11 +44,7 @@ export async function handleMarketTimeframe(ctx: BotContext) {
     }
 
     const marketSlug = market.market_slug ?? market.slug ?? cached.slug;
-    const refreshData = allocRefreshPayload({
-      kind: "market",
-      slug: marketSlug,
-      timeframe: tf,
-    });
+    const refreshData = allocMarketRefreshPayload(market, tf);
     const keyboard = buildMarketDetailKeyboard(
       marketSlug,
       market.event_slug,

@@ -9,6 +9,7 @@ export type MarketRecord = {
   outcomes?: Outcome[];
   market_slug?: string;
   slug?: string;
+  condition_id?: string;
   event_slug?: string;
   end_time?: number;
   metrics?: MetricsWindow;

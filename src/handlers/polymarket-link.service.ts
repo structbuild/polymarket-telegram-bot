@@ -22,6 +22,7 @@ import {
   replyWithOptionalPhoto,
 } from "./polymarket-link.reply.js";
 import {
+  allocMarketRefreshPayload,
   allocRefreshPayload,
   buildRefreshOnlyKeyboard,
   getEventSlugFromRecord,
@@ -103,7 +104,7 @@ async function replyWithMarket(ctx: BotContext, slug: string) {
 
   const marketSlug = market.market_slug ?? market.slug ?? slug;
   const tf = getPreferredMarketTimeframe(ctx.from?.id);
-  const refreshData = allocRefreshPayload({ kind: "market", slug: marketSlug, timeframe: tf });
+  const refreshData = allocMarketRefreshPayload(market, tf);
   const keyboard = buildMarketDetailKeyboard(
     marketSlug,
     market.event_slug,

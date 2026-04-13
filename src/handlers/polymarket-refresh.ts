@@ -14,18 +14,27 @@ import {
   getCachedEventById,
   updateCachedEvent,
 } from "./event-pagination.js";
-import { fetchEventBySlug, fetchMarketBySlug } from "./polymarket-link.fetch.js";
+import {
+  fetchEventBySlug,
+  fetchMarketByConditionId,
+  fetchMarketBySlug,
+} from "./polymarket-link.fetch.js";
 import {
   getPreferredMarketTimeframe,
   setPreferredMarketTimeframe,
 } from "./market-timeframe-prefs.js";
 import { buildMarketDetailKeyboard } from "./top-holders.js";
+import type { MarketRecord } from "../format/types.js";
 
 const MAX_REFRESH = 500;
+type MarketRefreshPayload =
+  | { kind: "market"; slug: string; timeframe: string }
+  | { kind: "market"; conditionId: string; timeframe: string };
+
 const refreshPayloads = new Map<
   number,
   | { kind: "event"; slug: string; page: number; timeframe?: string }
-  | { kind: "market"; slug: string; timeframe: string }
+  | MarketRefreshPayload
 >();
 let nextRefreshId = 1;
 
@@ -40,7 +49,7 @@ export function getEventSlugFromRecord(event: EventRecord): string | undefined {
 export function allocRefreshPayload(
   payload:
     | { kind: "event"; slug: string; page: number; timeframe?: string }
-    | { kind: "market"; slug: string; timeframe: string },
+    | MarketRefreshPayload,
 ): string {
   if (refreshPayloads.size >= MAX_REFRESH) {
     const first = refreshPayloads.keys().next().value!;
@@ -49,6 +58,39 @@ export function allocRefreshPayload(
   const id = nextRefreshId++;
   refreshPayloads.set(id, payload);
   return `rf:${id}`;
+}
+
+function getConditionIdFromMarket(
+  market: Pick<MarketRecord, "condition_id">,
+): string | undefined {
+  const conditionId = market.condition_id;
+  if (typeof conditionId !== "string" || conditionId.length === 0) {
+    return undefined;
+  }
+  return conditionId.startsWith("0x") ? conditionId : `0x${conditionId}`;
+}
+
+export function allocMarketRefreshPayload(
+  market: Pick<MarketRecord, "market_slug" | "slug" | "condition_id">,
+  timeframe: string,
+  fallbackConditionId?: string,
+): string {
+  const marketSlug =
+    (typeof market.market_slug === "string" && market.market_slug.length > 0
+      ? market.market_slug
+      : undefined) ??
+    (typeof market.slug === "string" && market.slug.length > 0 ? market.slug : undefined);
+
+  if (marketSlug) {
+    return allocRefreshPayload({ kind: "market", slug: marketSlug, timeframe });
+  }
+
+  const conditionId = getConditionIdFromMarket(market) ?? fallbackConditionId;
+  if (!conditionId) {
+    throw new Error("Market is missing both slug and condition ID.");
+  }
+
+  return allocRefreshPayload({ kind: "market", conditionId, timeframe });
 }
 
 export function buildRefreshOnlyKeyboard(refreshData: string): InlineKeyboard {
@@ -185,26 +227,31 @@ export async function handlePayloadRefresh(ctx: BotContext) {
 
   try {
     if (entry.kind === "market") {
-      const market = await fetchMarketBySlug(entry.slug);
+      const market =
+        "slug" in entry
+          ? await fetchMarketBySlug(entry.slug)
+          : await fetchMarketByConditionId(entry.conditionId);
       if (!market) {
         await ctx.answerCallbackQuery({ text: "Market not found." });
         return;
       }
       const tf = normalizeMarketTimeframe(entry.timeframe);
-      const marketSlug = market.market_slug ?? market.slug ?? entry.slug;
-      const refreshData = allocRefreshPayload({
-        kind: "market",
-        slug: marketSlug,
-        timeframe: tf,
-      });
-      const keyboard = buildMarketDetailKeyboard(
-        marketSlug,
-        market.event_slug,
-        market.question ?? market.title,
-        refreshData,
-        tf,
+      const marketSlug = market.market_slug ?? market.slug;
+      const refreshData = allocMarketRefreshPayload(
         market,
+        tf,
+        "conditionId" in entry ? entry.conditionId : undefined,
       );
+      const keyboard = marketSlug
+        ? buildMarketDetailKeyboard(
+            marketSlug,
+            market.event_slug,
+            market.question ?? market.title,
+            refreshData,
+            tf,
+            market,
+          )
+        : buildRefreshOnlyKeyboard(refreshData);
       const ok = await editPolymarketReply(
         ctx,
         withLastUpdatedFooter(formatMarket(market, undefined, tf)),

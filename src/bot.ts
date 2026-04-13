@@ -20,6 +20,7 @@ import { getPreferredMarketTimeframe } from "./handlers/market-timeframe-prefs.j
 import { handleMarketTimeframe } from "./handlers/market-timeframe.js";
 import { handleSearch } from "./handlers/search.js";
 import {
+  allocMarketRefreshPayload,
   allocRefreshPayload,
   buildRefreshOnlyKeyboard,
   getEventSlugFromRecord,
@@ -175,11 +176,11 @@ bot.command("start", async (ctx) => {
   const tf = getPreferredMarketTimeframe(ctx.from?.id);
   const caption = withLastUpdatedFooter(formatMarket(market, undefined, tf));
   const marketSlug = market.market_slug ?? market.slug;
-  const refreshData = allocRefreshPayload({
-    kind: "market",
-    slug: marketSlug ?? payload.slice(2),
-    timeframe: tf,
-  });
+  const refreshData = allocMarketRefreshPayload(
+    market,
+    tf,
+    isConditionId ? `0x${payload}` : undefined,
+  );
   const keyboard = marketSlug
     ? buildMarketDetailKeyboard(
         marketSlug,
