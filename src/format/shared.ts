@@ -34,3 +34,17 @@ export function formatShortDate(timestampSeconds: number): string {
     year: "numeric",
   });
 }
+
+export function formatLastUpdatedFooter(): string {
+  const d = new Date();
+  const pad2 = (n: number) => n.toString().padStart(2, "0");
+  const h = pad2(d.getHours());
+  const m = pad2(d.getMinutes());
+  const s = pad2(d.getSeconds());
+  const ms = d.getMilliseconds().toString().padStart(3, "0");
+  return `\n\n🕒 Last updated: ${h}:${m}:${s}.${ms}`;
+}
+
+export function withLastUpdatedFooter(text: string): string {
+  return `${text}${formatLastUpdatedFooter()}`;
+}

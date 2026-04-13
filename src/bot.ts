@@ -3,7 +3,7 @@ import { MenuFlavor } from "@grammyjs/menu";
 import { limit } from "@grammyjs/ratelimiter";
 import { apiThrottler } from "@grammyjs/transformer-throttler";
 import { env } from "./env.js";
-import { formatEvent, formatMarket } from "./format.js";
+import { formatEvent, formatMarket, withLastUpdatedFooter } from "./format.js";
 import { handleEventPagination } from "./handlers/event-pagination.js";
 import {
   EVENT_PAGE_SIZE,
@@ -16,8 +16,17 @@ import {
   fetchMarketBySlug,
 } from "./handlers/polymarket-link.fetch.js";
 import { handlePolymarketLink } from "./handlers/polymarket-link.js";
+import { getPreferredMarketTimeframe } from "./handlers/market-timeframe-prefs.js";
+import { handleMarketTimeframe } from "./handlers/market-timeframe.js";
 import { handleSearch } from "./handlers/search.js";
-import { buildTopHoldersKeyboard, handleTopHolders } from "./handlers/top-holders.js";
+import {
+  allocRefreshPayload,
+  buildRefreshOnlyKeyboard,
+  getEventSlugFromRecord,
+  handleEventCacheRefresh,
+  handlePayloadRefresh,
+} from "./handlers/polymarket-refresh.js";
+import { buildMarketDetailKeyboard, handleTopHolders } from "./handlers/top-holders.js";
 import { handlePriceJumps, handlePriceJumpsPagination } from "./handlers/price-jumps.js";
 
 export type BotContext = Context & MenuFlavor;
@@ -83,9 +92,26 @@ bot.command("start", async (ctx) => {
     const markets = event.markets ?? [];
     if (markets.length === 1) {
       const market = markets[0];
-      const caption = formatMarket(market, event.metrics);
+      const tf = getPreferredMarketTimeframe(ctx.from?.id);
+      const caption = withLastUpdatedFooter(formatMarket(market, event.metrics, tf));
       const marketSlug = market.market_slug ?? market.slug;
-      const keyboard = marketSlug ? buildTopHoldersKeyboard(marketSlug, market.event_slug, market.question ?? market.title) : undefined;
+      const refreshData = allocRefreshPayload({
+        kind: "event",
+        slug: getEventSlugFromRecord(event) ?? decodeURIComponent(payload.slice(2)),
+        page: 0,
+        timeframe: tf,
+      });
+      const keyboard = marketSlug
+        ? buildMarketDetailKeyboard(
+            marketSlug,
+            market.event_slug,
+            market.question ?? market.title,
+            refreshData,
+            tf,
+            market,
+            event.metrics,
+          )
+        : buildRefreshOnlyKeyboard(refreshData);
 
       if (market.image_url ?? event.image_url) {
         try {
@@ -107,17 +133,24 @@ bot.command("start", async (ctx) => {
     }
 
     const botUsername = ctx.me?.username;
-    const text = formatEvent(event, botUsername, 0, EVENT_PAGE_SIZE);
+    const text = withLastUpdatedFooter(formatEvent(event, botUsername, 0, EVENT_PAGE_SIZE));
     const keyboard =
       markets.length > EVENT_PAGE_SIZE
         ? buildPaginationKeyboard(cacheEvent(event, botUsername), 0, markets.length)
-        : undefined;
+        : buildRefreshOnlyKeyboard(
+            allocRefreshPayload({
+              kind: "event",
+              slug: getEventSlugFromRecord(event) ?? decodeURIComponent(payload.slice(2)),
+              page: 0,
+            }),
+          );
 
-    if (event.image_url && !keyboard) {
+    if (event.image_url && markets.length <= EVENT_PAGE_SIZE) {
       try {
         await ctx.api.sendPhoto(chatId, event.image_url, {
           caption: text,
           parse_mode: "HTML",
+          reply_markup: keyboard,
         });
         return;
       } catch {}
@@ -139,9 +172,24 @@ bot.command("start", async (ctx) => {
     await ctx.api.sendMessage(chatId, "❌ Market not found.", { parse_mode: "HTML" });
     return;
   }
-  const caption = formatMarket(market);
+  const tf = getPreferredMarketTimeframe(ctx.from?.id);
+  const caption = withLastUpdatedFooter(formatMarket(market, undefined, tf));
   const marketSlug = market.market_slug ?? market.slug;
-  const keyboard = marketSlug ? buildTopHoldersKeyboard(marketSlug, market.event_slug, market.question ?? market.title) : undefined;
+  const refreshData = allocRefreshPayload({
+    kind: "market",
+    slug: marketSlug ?? payload.slice(2),
+    timeframe: tf,
+  });
+  const keyboard = marketSlug
+    ? buildMarketDetailKeyboard(
+        marketSlug,
+        market.event_slug,
+        market.question ?? market.title,
+        refreshData,
+        tf,
+        market,
+      )
+    : buildRefreshOnlyKeyboard(refreshData);
   if (market.image_url) {
     try {
       await ctx.api.sendPhoto(chatId, market.image_url, {
@@ -161,6 +209,9 @@ bot.command("start", async (ctx) => {
 
 bot.on("callback_query:data", async (ctx) => {
   const data = ctx.callbackQuery?.data;
+  if (data?.startsWith("rf:")) return handlePayloadRefresh(ctx);
+  if (data?.startsWith("rfe:")) return handleEventCacheRefresh(ctx);
+  if (data?.startsWith("mv:")) return handleMarketTimeframe(ctx);
   if (data?.startsWith("ep:")) return handleEventPagination(ctx);
   if (data?.startsWith("th:")) return handleTopHolders(ctx);
   if (data?.startsWith("pj:")) return handlePriceJumps(ctx);

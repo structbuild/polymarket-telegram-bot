@@ -1,5 +1,10 @@
 import { type BotContext, replyParams } from "../bot.js";
-import { formatEvent, formatMarket, formatTrader } from "../format.js";
+import {
+  formatEvent,
+  formatMarket,
+  formatTrader,
+  withLastUpdatedFooter,
+} from "../format.js";
 import type { PolymarketUrl } from "../polymarket-url.js";
 import {
   EVENT_PAGE_SIZE,
@@ -16,7 +21,13 @@ import {
   replyMissingMarket,
   replyWithOptionalPhoto,
 } from "./polymarket-link.reply.js";
-import { buildTopHoldersKeyboard } from "./top-holders.js";
+import {
+  allocRefreshPayload,
+  buildRefreshOnlyKeyboard,
+  getEventSlugFromRecord,
+} from "./polymarket-refresh.js";
+import { getPreferredMarketTimeframe } from "./market-timeframe-prefs.js";
+import { buildMarketDetailKeyboard } from "./top-holders.js";
 import { fetchTraderProfile, fetchTraderPnl } from "./trader.fetch.js";
 
 export async function replyWithEvent(ctx: BotContext, slug: string) {
@@ -32,13 +43,41 @@ export async function replyWithEvent(ctx: BotContext, slug: string) {
     const market = markets[0];
     const imageUrl = market.image_url ?? event.image_url;
     const marketSlug = market.market_slug ?? market.slug;
-    const keyboard = marketSlug ? buildTopHoldersKeyboard(marketSlug, market.event_slug, market.question ?? market.title) : undefined;
-    await replyWithOptionalPhoto(ctx, formatMarket(market, event.metrics), imageUrl, keyboard);
+    const slugForRefresh = getEventSlugFromRecord(event) ?? slug;
+    const tf = getPreferredMarketTimeframe(ctx.from?.id);
+    const refreshData = allocRefreshPayload({
+      kind: "event",
+      slug: slugForRefresh,
+      page: 0,
+      timeframe: tf,
+    });
+    const keyboard = marketSlug
+      ? buildMarketDetailKeyboard(
+          marketSlug,
+          market.event_slug,
+          market.question ?? market.title,
+          refreshData,
+          tf,
+          market,
+          event.metrics,
+        )
+      : buildRefreshOnlyKeyboard(refreshData);
+    await replyWithOptionalPhoto(
+      ctx,
+      withLastUpdatedFooter(formatMarket(market, event.metrics, tf)),
+      imageUrl,
+      keyboard,
+    );
     return;
   }
 
   const botUsername = ctx.me?.username;
-  const text = formatEvent(event, botUsername, 0, EVENT_PAGE_SIZE);
+  const text = withLastUpdatedFooter(formatEvent(event, botUsername, 0, EVENT_PAGE_SIZE));
+  const listRefreshData = allocRefreshPayload({
+    kind: "event",
+    slug: getEventSlugFromRecord(event) ?? slug,
+    page: 0,
+  });
 
   if (markets.length > EVENT_PAGE_SIZE) {
     const cacheId = cacheEvent(event, botUsername);
@@ -52,7 +91,7 @@ export async function replyWithEvent(ctx: BotContext, slug: string) {
     return;
   }
 
-  await replyWithOptionalPhoto(ctx, text, event.image_url);
+  await replyWithOptionalPhoto(ctx, text, event.image_url, buildRefreshOnlyKeyboard(listRefreshData));
 }
 
 async function replyWithMarket(ctx: BotContext, slug: string) {
@@ -63,8 +102,22 @@ async function replyWithMarket(ctx: BotContext, slug: string) {
   }
 
   const marketSlug = market.market_slug ?? market.slug ?? slug;
-  const keyboard = buildTopHoldersKeyboard(marketSlug, market.event_slug, market.question ?? market.title);
-  await replyWithOptionalPhoto(ctx, formatMarket(market), market.image_url, keyboard);
+  const tf = getPreferredMarketTimeframe(ctx.from?.id);
+  const refreshData = allocRefreshPayload({ kind: "market", slug: marketSlug, timeframe: tf });
+  const keyboard = buildMarketDetailKeyboard(
+    marketSlug,
+    market.event_slug,
+    market.question ?? market.title,
+    refreshData,
+    tf,
+    market,
+  );
+  await replyWithOptionalPhoto(
+    ctx,
+    withLastUpdatedFooter(formatMarket(market, undefined, tf)),
+    market.image_url,
+    keyboard,
+  );
 }
 
 async function replyWithTrader(ctx: BotContext, address: string) {
@@ -78,7 +131,7 @@ async function replyWithTrader(ctx: BotContext, address: string) {
     return;
   }
 
-  const imageUrl = profile?.profile_image ?? pnl?.trader?.profile_image;
+  const imageUrl = profile?.profile_image;
   await replyWithOptionalPhoto(ctx, formatTrader(address, profile, pnl), imageUrl);
 }
 

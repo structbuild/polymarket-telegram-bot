@@ -20,7 +20,7 @@ export async function fetchEventBySlug(
 export async function fetchMarketBySlug(
   slug: string,
 ): Promise<StructEntity | null> {
-  const response = await struct.markets.getMarketBySlug({ slug, include_tags: false });
+  const response = await struct.markets.getMarketBySlug({ marketSlug: slug, include_tags: false });
   return unwrapStructData(response.data);
 }
 

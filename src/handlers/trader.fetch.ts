@@ -1,5 +1,5 @@
 import { struct } from "../struct.js";
-import type { GlobalPnlTrader, UserProfile } from "@structbuild/sdk";
+import type { TraderPnlSummary, UserProfile } from "@structbuild/sdk";
 
 export async function fetchTraderProfile(
   address: string,
@@ -14,7 +14,7 @@ export async function fetchTraderProfile(
 
 export async function fetchTraderPnl(
   address: string,
-): Promise<GlobalPnlTrader | null> {
+): Promise<TraderPnlSummary | null> {
   try {
     const response = await struct.trader.getTraderPnl({
       address,

@@ -1,4 +1,4 @@
-import type { GlobalPnlTrader, UserProfile } from "@structbuild/sdk";
+import type { TraderPnlSummary, UserProfile } from "@structbuild/sdk";
 import { escapeHtml, formatUsd } from "./shared.js";
 
 function formatPnlValue(value: number | null | undefined): string {
@@ -20,11 +20,10 @@ function formatWinRate(pct: number | null | undefined): string {
 
 function formatTraderName(
   profile: UserProfile | null,
-  pnl: GlobalPnlTrader | null,
+  pnl: TraderPnlSummary | null,
   address: string,
 ): string {
-  const name =
-    profile?.name ?? pnl?.trader?.name ?? profile?.pseudonym ?? pnl?.trader?.pseudonym;
+  const name = profile?.name ?? profile?.pseudonym;
   if (name) return escapeHtml(name);
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
@@ -36,12 +35,12 @@ function buildProfileUrl(address: string): string {
 export function formatTrader(
   address: string,
   profile: UserProfile | null,
-  pnl: GlobalPnlTrader | null,
+  pnl: TraderPnlSummary | null,
 ): string {
   const lines: string[] = [];
   const name = formatTraderName(profile, pnl, address);
 
-  const badge = pnl?.trader?.verified_badge || profile?.verified_badge ? " ✅" : "";
+  const badge = profile?.verified_badge ? " ✅" : "";
   lines.push(`👤 <b>${name}</b>${badge}`);
 
   if (profile?.bio) {
@@ -51,8 +50,8 @@ export function formatTrader(
   if (pnl) {
     lines.push("");
     lines.push("<b>PnL</b>");
-    const pnlEmoji = (pnl.pnl_usd ?? 0) >= 0 ? "🟢" : "🔴";
-    lines.push(`${pnlEmoji} Lifetime: <code>${formatPnlValue(pnl.pnl_usd)}</code>`);
+    const pnlEmoji = (pnl.realized_pnl_usd ?? 0) >= 0 ? "🟢" : "🔴";
+    lines.push(`${pnlEmoji} Lifetime: <code>${formatPnlValue(pnl.realized_pnl_usd)}</code>`);
 
     lines.push("");
     lines.push("<b>Stats</b>");
@@ -73,8 +72,9 @@ export function formatTrader(
         `🎯 Win rate: <code>${formatWinRate(pnl.market_win_rate_pct)}</code>`,
       );
     }
-    if (pnl.total_trades != null) {
-      lines.push(`🔄 Total trades: <code>${pnl.total_trades}</code>`);
+    const totalTrades = (pnl.total_buys ?? 0) + (pnl.total_sells ?? 0);
+    if (totalTrades > 0) {
+      lines.push(`🔄 Total trades: <code>${totalTrades}</code>`);
     }
 
     if (pnl.avg_pnl_per_trade != null) {
@@ -83,17 +83,12 @@ export function formatTrader(
       );
     }
 
-    if (pnl.best_trade_pnl_usd != null || pnl.worst_trade_pnl_usd != null) {
+    if (pnl.best_trade_pnl_usd != null) {
       lines.push("");
       lines.push("<b>Extremes</b>");
       if (pnl.best_trade_pnl_usd != null) {
         lines.push(
           `📈 Best trade: <code>${formatSignedUsd(pnl.best_trade_pnl_usd)}</code>`,
-        );
-      }
-      if (pnl.worst_trade_pnl_usd != null) {
-        lines.push(
-          `📉 Worst trade: <code>${formatSignedUsd(pnl.worst_trade_pnl_usd)}</code>`,
         );
       }
     }

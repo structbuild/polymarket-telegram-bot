@@ -3,6 +3,8 @@ const POLYMARKET_EVENT_RE =
   /^https?:\/\/(?:www\.)?polymarket\.com\/event\/([a-z0-9-]+)$/;
 const POLYMARKET_MARKET_RE =
   /^https?:\/\/(?:www\.)?polymarket\.com\/event\/[a-z0-9-]+\/([a-z0-9-]+)$/;
+const POLYMARKET_MARKET_PATH_RE =
+  /^https?:\/\/(?:www\.)?polymarket\.com\/market\/([a-z0-9-]+)$/;
 
 export type PolymarketUrl =
   | { type: "event"; slug: string }
@@ -10,7 +12,7 @@ export type PolymarketUrl =
   | { type: "trader"; address: string };
 
 function stripFragmentAndQuery(url: string): string {
-  return url.replace(/[?#].*$/, "");
+  return url.replace(/[?#].*$/, "").replace(/\/$/, "");
 }
 
 function matchPolymarketUrl(raw: string): PolymarketUrl | null {
@@ -18,6 +20,9 @@ function matchPolymarketUrl(raw: string): PolymarketUrl | null {
 
   const marketMatch = url.match(POLYMARKET_MARKET_RE);
   if (marketMatch) return { type: "market", slug: marketMatch[1] };
+
+  const marketPathMatch = url.match(POLYMARKET_MARKET_PATH_RE);
+  if (marketPathMatch) return { type: "market", slug: marketPathMatch[1] };
 
   const eventMatch = url.match(POLYMARKET_EVENT_RE);
   if (eventMatch) return { type: "event", slug: eventMatch[1] };

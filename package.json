@@ -15,7 +15,7 @@
     "@grammyjs/ratelimiter": "^1.2.1",
     "@grammyjs/runner": "^2.0.3",
     "@grammyjs/transformer-throttler": "^1.2.1",
-    "@structbuild/sdk": "^0.2.4",
+    "@structbuild/sdk": "0.3.1",
     "dotenv": "^17.3.1",
     "grammy": "^1.41.1"
   },

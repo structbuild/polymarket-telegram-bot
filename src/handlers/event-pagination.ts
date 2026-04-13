@@ -1,6 +1,6 @@
 import { InlineKeyboard } from "grammy";
 import type { BotContext } from "../bot.js";
-import { formatEvent } from "../format.js";
+import { formatEvent, withLastUpdatedFooter } from "../format.js";
 import type { EventRecord } from "../format/types.js";
 
 export const EVENT_PAGE_SIZE = 12;
@@ -24,6 +24,26 @@ export function cacheEvent(event: EventRecord, botUsername?: string): number {
   return id;
 }
 
+export function getCachedEventById(
+  id: number,
+): { event: EventRecord; botUsername?: string } | undefined {
+  return eventCache.get(id);
+}
+
+export function updateCachedEvent(
+  cacheId: number,
+  event: EventRecord,
+  botUsername?: string,
+): boolean {
+  const existing = eventCache.get(cacheId);
+  if (!existing) return false;
+  eventCache.set(cacheId, {
+    event,
+    botUsername: botUsername ?? existing.botUsername,
+  });
+  return true;
+}
+
 export function buildPaginationKeyboard(
   cacheId: number,
   page: number,
@@ -35,6 +55,7 @@ export function buildPaginationKeyboard(
   if (page > 0) kb.text("◀️", `ep:${cacheId}:${page - 1}`);
   kb.text(`${page + 1}/${totalPages}`, `ep:${cacheId}:noop`);
   if (page < totalPages - 1) kb.text("▶️", `ep:${cacheId}:${page + 1}`);
+  kb.row().text("🔄 Refresh", `rfe:${cacheId}:${page}`);
   return kb;
 }
 
@@ -52,14 +73,16 @@ export async function handleEventPagination(ctx: BotContext) {
   }
 
   const page = parseInt(action, 10);
-  const cached = eventCache.get(cacheId);
+  const cached = getCachedEventById(cacheId);
   if (!cached) {
     await ctx.answerCallbackQuery({ text: "Session expired. Send the link again." });
     return;
   }
 
   const totalMarkets = (cached.event.markets ?? []).length;
-  const text = formatEvent(cached.event, cached.botUsername, page, EVENT_PAGE_SIZE);
+  const text = withLastUpdatedFooter(
+    formatEvent(cached.event, cached.botUsername, page, EVENT_PAGE_SIZE),
+  );
   const keyboard = buildPaginationKeyboard(cacheId, page, totalMarkets);
 
   await ctx.editMessageText(text, {
