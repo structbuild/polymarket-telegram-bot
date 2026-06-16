@@ -1,6 +1,5 @@
 export { formatLastUpdatedFooter, withLastUpdatedFooter } from "./format/shared.js";
 export { formatEvent } from "./format/event.js";
-export { formatTopHolders } from "./format/holders.js";
 export {
   DEFAULT_MARKET_TIMEFRAME,
   MARKET_TIMEFRAMES,
@@ -8,4 +7,4 @@ export {
   formatMarket,
   normalizeMarketTimeframe,
 } from "./format/market.js";
-export { formatTrader } from "./format/trader.js";
+export { formatTrader, formatTraderHeader } from "./format/trader.js";

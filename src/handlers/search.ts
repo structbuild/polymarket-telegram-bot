@@ -1,7 +1,6 @@
-import type { Event } from "@structbuild/sdk";
 import type { BotContext } from "../bot.js";
 import { replyParams } from "../bot.js";
-import { formatEventSearchResults } from "../format/search.js";
+import { formatEventSearchResults, type SearchEvent } from "../format/search.js";
 import { escapeHtml } from "../format/shared.js";
 import { struct } from "../struct.js";
 import { replyPolymarketFetchError } from "./polymarket-link.errors.js";
@@ -13,7 +12,7 @@ function normalizeSearchValue(value: string | null | undefined): string {
   return (value ?? "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-function findExactEventMatch(query: string, events: Event[]): Event | null {
+function findExactEventMatch(query: string, events: SearchEvent[]): SearchEvent | null {
   const normalizedQuery = normalizeSearchValue(query);
 
   for (const event of events) {

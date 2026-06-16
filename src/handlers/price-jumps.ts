@@ -3,6 +3,7 @@ import type { BotContext } from "../bot.js";
 import { formatPriceJumps } from "../format/price-jumps.js";
 import { struct } from "../struct.js";
 import { getCachedMarketInfo } from "./top-holders.js";
+import { editPolymarketReply } from "./polymarket-refresh.js";
 
 export const PRICE_JUMPS_PAGE_SIZE = 7;
 const MAX_CACHE_SIZE = 500;
@@ -21,17 +22,34 @@ type PriceJumpEntry = {
 
 const CACHE_TTL_MS = 3 * 60 * 1000;
 
-type CachedJumps = { jumps: PriceJumpEntry[]; marketUrl?: string; question?: string; expiresAt: number };
+type CachedJumps = {
+  jumps: PriceJumpEntry[];
+  marketCacheId: number;
+  marketUrl?: string;
+  question?: string;
+  expiresAt: number;
+};
 const jumpsCache = new Map<number, CachedJumps>();
 let nextId = 1;
 
-function cacheJumps(jumps: PriceJumpEntry[], marketUrl?: string, question?: string): number {
+function cacheJumps(
+  jumps: PriceJumpEntry[],
+  marketCacheId: number,
+  marketUrl?: string,
+  question?: string,
+): number {
   if (jumpsCache.size >= MAX_CACHE_SIZE) {
     const firstKey = jumpsCache.keys().next().value!;
     jumpsCache.delete(firstKey);
   }
   const id = nextId++;
-  jumpsCache.set(id, { jumps, marketUrl, question, expiresAt: Date.now() + CACHE_TTL_MS });
+  jumpsCache.set(id, {
+    jumps,
+    marketCacheId,
+    marketUrl,
+    question,
+    expiresAt: Date.now() + CACHE_TTL_MS,
+  });
   return id;
 }
 
@@ -50,26 +68,33 @@ function buildMarketUrl(marketSlug: string, eventSlug?: string): string | undefi
   return `https://polymarket.com/event/${eventSlug}/${marketSlug}`;
 }
 
-function buildPriceJumpsPaginationKeyboard(
-  cacheId: number,
+function buildPriceJumpsKeyboard(
+  jumpsCacheId: number,
+  marketCacheId: number,
   page: number,
   total: number,
 ): InlineKeyboard {
   const totalPages = Math.ceil(total / PRICE_JUMPS_PAGE_SIZE);
   const kb = new InlineKeyboard();
-  if (page > 0) kb.text("◀️", `pp:${cacheId}:${page - 1}`);
-  kb.text(`${page + 1}/${totalPages}`, `pp:${cacheId}:noop`);
-  if (page < totalPages - 1) kb.text("▶️", `pp:${cacheId}:${page + 1}`);
-  kb.row().text("✕ Close", "close");
-  return kb;
+  if (totalPages > 1) {
+    if (page > 0) kb.text("◀️", `pp:${jumpsCacheId}:${page - 1}`);
+    kb.text(`${page + 1}/${totalPages}`, `pp:${jumpsCacheId}:noop`);
+    if (page < totalPages - 1) kb.text("▶️", `pp:${jumpsCacheId}:${page + 1}`);
+    kb.row();
+  }
+  return kb
+    .text("⬅️ Back", `mb:${marketCacheId}`)
+    .success()
+    .text("✕ Close", "close")
+    .danger();
 }
 
 export async function handlePriceJumps(ctx: BotContext) {
   const data = ctx.callbackQuery?.data;
   if (!data?.startsWith("pj:")) return;
 
-  const cacheId = parseInt(data.split(":")[1], 10);
-  const marketInfo = getCachedMarketInfo(cacheId);
+  const marketCacheId = parseInt(data.split(":")[1], 10);
+  const marketInfo = getCachedMarketInfo(marketCacheId);
 
   if (!marketInfo) {
     await ctx.answerCallbackQuery({
@@ -93,24 +118,9 @@ export async function handlePriceJumps(ctx: BotContext) {
 
     const jumps = response.data;
     const text = formatPriceJumps(jumps, 0, PRICE_JUMPS_PAGE_SIZE, marketUrl, question);
-
-    if (jumps.length <= PRICE_JUMPS_PAGE_SIZE) {
-      const keyboard = new InlineKeyboard().text("✕ Close", "close");
-      await ctx.reply(text, {
-        parse_mode: "HTML",
-        link_preview_options: { is_disabled: true },
-        reply_markup: keyboard,
-      });
-      return;
-    }
-
-    const jumpsCacheId = cacheJumps(jumps, marketUrl, question);
-    const keyboard = buildPriceJumpsPaginationKeyboard(jumpsCacheId, 0, jumps.length);
-    await ctx.reply(text, {
-      parse_mode: "HTML",
-      link_preview_options: { is_disabled: true },
-      reply_markup: keyboard,
-    });
+    const jumpsCacheId = cacheJumps(jumps, marketCacheId, marketUrl, question);
+    const keyboard = buildPriceJumpsKeyboard(jumpsCacheId, marketCacheId, 0, jumps.length);
+    await editPolymarketReply(ctx, text, keyboard);
   } catch {
     await ctx.reply("❌ Could not fetch price jumps for this market.");
   }
@@ -138,12 +148,8 @@ export async function handlePriceJumpsPagination(ctx: BotContext) {
   }
 
   const text = formatPriceJumps(cached.jumps, page, PRICE_JUMPS_PAGE_SIZE, cached.marketUrl, cached.question);
-  const keyboard = buildPriceJumpsPaginationKeyboard(cacheId, page, cached.jumps.length);
+  const keyboard = buildPriceJumpsKeyboard(cacheId, cached.marketCacheId, page, cached.jumps.length);
 
-  await ctx.editMessageText(text, {
-    parse_mode: "HTML",
-    link_preview_options: { is_disabled: true },
-    reply_markup: keyboard,
-  });
+  await editPolymarketReply(ctx, text, keyboard);
   await ctx.answerCallbackQuery();
 }

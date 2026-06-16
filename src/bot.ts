@@ -16,6 +16,7 @@ import {
   fetchMarketBySlug,
 } from "./handlers/polymarket-link.fetch.js";
 import { handlePolymarketLink } from "./handlers/polymarket-link.js";
+import { replyWithTrader } from "./handlers/polymarket-link.service.js";
 import { getPreferredMarketTimeframe } from "./handlers/market-timeframe-prefs.js";
 import { handleMarketTimeframe } from "./handlers/market-timeframe.js";
 import { handleSearch } from "./handlers/search.js";
@@ -27,8 +28,14 @@ import {
   handleEventCacheRefresh,
   handlePayloadRefresh,
 } from "./handlers/polymarket-refresh.js";
-import { buildMarketDetailKeyboard, handleTopHolders } from "./handlers/top-holders.js";
+import { buildMarketDetailKeyboard } from "./handlers/top-holders.js";
 import { handlePriceJumps, handlePriceJumpsPagination } from "./handlers/price-jumps.js";
+import { handleTraderView } from "./handlers/trader-views.js";
+import {
+  handleBackToMarket,
+  handleMarketAnalytics,
+  handleMarketAnalyticsNav,
+} from "./handlers/market-analytics.js";
 
 export type BotContext = Context & MenuFlavor;
 
@@ -44,6 +51,7 @@ bot.use(limit());
 bot.api.config.use(apiThrottler());
 
 const CONDITION_ID_RE = /^[0-9a-f]{64}$/;
+const ADDRESS_RE = /^[0-9a-f]{40}$/;
 
 async function replyWelcome(ctx: BotContext) {
   const welcome = [
@@ -72,16 +80,22 @@ bot.command("start", async (ctx) => {
   }
 
   const isConditionId = CONDITION_ID_RE.test(payload);
+  const isAddress = ADDRESS_RE.test(payload);
   const isMarketSlug = payload.startsWith("m_") && payload.length > 2;
   const isEventSlug = payload.startsWith("e_") && payload.length > 2;
 
-  if (!isConditionId && !isMarketSlug && !isEventSlug) {
+  if (!isConditionId && !isAddress && !isMarketSlug && !isEventSlug) {
     await replyWelcome(ctx);
     return;
   }
 
   const chatId = ctx.chat.id;
   await ctx.api.deleteMessage(chatId, ctx.message!.message_id).catch(() => {});
+
+  if (isAddress) {
+    await replyWithTrader(ctx, `0x${payload}`, { replyToMessage: false });
+    return;
+  }
 
   if (isEventSlug) {
     const event = await fetchEventBySlug(decodeURIComponent(payload.slice(2)));
@@ -214,9 +228,12 @@ bot.on("callback_query:data", async (ctx) => {
   if (data?.startsWith("rfe:")) return handleEventCacheRefresh(ctx);
   if (data?.startsWith("mv:")) return handleMarketTimeframe(ctx);
   if (data?.startsWith("ep:")) return handleEventPagination(ctx);
-  if (data?.startsWith("th:")) return handleTopHolders(ctx);
+  if (data?.startsWith("man:")) return handleMarketAnalyticsNav(ctx);
+  if (data?.startsWith("mb:")) return handleBackToMarket(ctx);
+  if (data?.startsWith("ma:")) return handleMarketAnalytics(ctx);
   if (data?.startsWith("pj:")) return handlePriceJumps(ctx);
   if (data?.startsWith("pp:")) return handlePriceJumpsPagination(ctx);
+  if (data?.startsWith("tr:")) return handleTraderView(ctx);
   if (data === "close") {
     await ctx.deleteMessage();
     await ctx.answerCallbackQuery();

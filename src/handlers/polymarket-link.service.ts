@@ -30,6 +30,7 @@ import {
 import { getPreferredMarketTimeframe } from "./market-timeframe-prefs.js";
 import { buildMarketDetailKeyboard } from "./top-holders.js";
 import { fetchTraderProfile, fetchTraderPnl } from "./trader.fetch.js";
+import { buildTraderMenuKeyboard, cacheTrader } from "./trader-views.js";
 
 export async function replyWithEvent(ctx: BotContext, slug: string) {
   const event = await fetchEventBySlug(slug);
@@ -121,7 +122,11 @@ async function replyWithMarket(ctx: BotContext, slug: string) {
   );
 }
 
-async function replyWithTrader(ctx: BotContext, address: string) {
+export async function replyWithTrader(
+  ctx: BotContext,
+  address: string,
+  options: { replyToMessage?: boolean } = {},
+) {
   const [profile, pnl] = await Promise.all([
     fetchTraderProfile(address),
     fetchTraderPnl(address),
@@ -132,8 +137,13 @@ async function replyWithTrader(ctx: BotContext, address: string) {
     return;
   }
 
-  const imageUrl = profile?.profile_image;
-  await replyWithOptionalPhoto(ctx, formatTrader(address, profile, pnl), imageUrl);
+  const cacheId = cacheTrader(address, profile, pnl);
+  await ctx.reply(formatTrader(address, profile, pnl), {
+    parse_mode: "HTML",
+    link_preview_options: { is_disabled: true },
+    reply_markup: buildTraderMenuKeyboard(cacheId),
+    ...(options.replyToMessage === false ? {} : replyParams(ctx)),
+  });
 }
 
 export async function handleParsedPolymarketLink(

@@ -17,7 +17,7 @@ export type MarketRecord = {
   volume_24hr?: number | null;
   liquidity_usd?: number | null;
   total_holders?: number | null;
-  winning_outcome?: string | null;
+  winning_outcome?: string | Outcome | null;
 } & Record<string, unknown>;
 
 export type EventRecord = {

@@ -1,17 +1,19 @@
-import type { Event } from "@structbuild/sdk";
+import type { SearchResponse } from "@structbuild/sdk";
 import { escapeHtml, formatShortDate, formatUsd, statusEmoji } from "./shared.js";
 
-function getSearchMetrics(event: Event) {
+export type SearchEvent = NonNullable<SearchResponse["events"]>[number];
+
+function getSearchMetrics(event: SearchEvent) {
   return event.metrics?.["30d"] ?? event.metrics?.["7d"] ?? event.metrics?.["24h"];
 }
 
-function buildEventUrl(event: Event, botUsername?: string): string | null {
+function buildEventUrl(event: SearchEvent, botUsername?: string): string | null {
   const slug = event.event_slug ?? "";
   if (!slug || !botUsername) return null;
   return `https://t.me/${botUsername}?start=e_${encodeURIComponent(slug)}`;
 }
 
-function formatEventMeta(event: Event): string | null {
+function formatEventMeta(event: SearchEvent): string | null {
   const parts: string[] = [];
 
   if (event.end_time) {
@@ -34,7 +36,7 @@ function formatEventMeta(event: Event): string | null {
   return parts.length ? parts.join(" | ") : null;
 }
 
-function formatEventResult(event: Event, botUsername?: string): string {
+function formatEventResult(event: SearchEvent, botUsername?: string): string {
   const title = escapeHtml(event.title ?? "Untitled Event");
   const url = buildEventUrl(event, botUsername);
   const heading = url ? `<a href="${url}"><b>${title}</b></a>` : `<b>${title}</b>`;
@@ -50,7 +52,7 @@ function formatEventResult(event: Event, botUsername?: string): string {
 
 export function formatEventSearchResults(
   query: string,
-  events: Event[],
+  events: SearchEvent[],
   botUsername?: string,
   hasMore = false,
 ): string {

@@ -121,7 +121,10 @@ export async function editPolymarketReply(
       link_preview_options: { is_disabled: true },
     });
     return true;
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("message is not modified")) {
+      return true;
+    }
     return false;
   }
 }

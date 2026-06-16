@@ -14,7 +14,13 @@ export function getMarketProbability(
 export function getWinningOutcomeName(
   market: Pick<MarketRecord, "outcomes" | "winning_outcome">,
 ): string | null {
-  if (market.winning_outcome) return market.winning_outcome;
+  const winning = market.winning_outcome;
+  if (typeof winning === "string") {
+    return winning || null;
+  }
+  if (winning && typeof winning === "object" && typeof winning.name === "string") {
+    return winning.name || null;
+  }
   const outcomes = market.outcomes ?? [];
   if (outcomes.length === 0) return null;
   const winner = outcomes.reduce((best, o) =>

@@ -2,12 +2,16 @@ import "./env.js";
 import { bot } from "./bot.js";
 import { run, sequentialize } from "@grammyjs/runner";
 import type { BotContext } from "./bot.js";
+import { setBotUsername } from "./bot-identity.js";
 
 function getSessionKey(ctx: BotContext) {
   return ctx.chat?.id.toString();
 }
 
 bot.use(sequentialize(getSessionKey));
+
+await bot.init();
+setBotUsername(bot.botInfo.username);
 
 const runner = run(bot, {
   runner: {
