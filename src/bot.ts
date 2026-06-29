@@ -31,6 +31,19 @@ import {
 } from "./handlers/leaderboard.js";
 import { handleInlineSearch } from "./handlers/inline-search.js";
 import {
+  handleBondsCommand,
+  handleBondsPagination,
+  handleSeriesCommand,
+  handleTagMarkets,
+  handleTagMarketsPagination,
+  handleTagsCommand,
+  handleTrendingCommand,
+  handleTrendingPagination,
+} from "./handlers/discovery.js";
+import { handleCompareCommand } from "./handlers/compare.js";
+import { handleOrderBook } from "./handlers/order-book.js";
+import { handleEventInsights } from "./handlers/event-insights.js";
+import {
   allocMarketRefreshPayload,
   allocRefreshPayload,
   buildRefreshOnlyKeyboard,
@@ -77,7 +90,11 @@ async function replyWelcome(ctx: BotContext) {
     "",
     "🏆 <code>/leaderboard</code> — top traders by P&amp;L.",
     "",
-    "🔎 Send a trader profile URL or wallet address to view their positions and P&amp;L.",
+    "🔥 <code>/trending</code> · 🏷 <code>/tags</code> · 📎 <code>/bonds</code> · 🔁 <code>/series</code>",
+    "",
+    "⚖️ <code>/compare</code> — side-by-side markets or traders.",
+    "",
+    "🔎 Send a Polymarket profile URL, wallet address, or link.",
     "",
     "Paste a link to get started.",
   ].join("\n");
@@ -254,6 +271,12 @@ bot.on("callback_query:data", async (ctx) => {
   if (data?.startsWith("gj:")) return handleGlobalJumpsPagination(ctx);
   if (data?.startsWith("lb:")) return handleLeaderboardPagination(ctx);
   if (data?.startsWith("lbt:")) return handleLeaderboardTimeframe(ctx);
+  if (data?.startsWith("trn:")) return handleTrendingPagination(ctx);
+  if (data?.startsWith("tgp:")) return handleTagMarketsPagination(ctx);
+  if (data?.startsWith("tag:")) return handleTagMarkets(ctx);
+  if (data?.startsWith("bon:")) return handleBondsPagination(ctx);
+  if (data?.startsWith("ob:")) return handleOrderBook(ctx);
+  if (data?.startsWith("ei:")) return handleEventInsights(ctx);
   if (data === "close") {
     await ctx.deleteMessage();
     await ctx.answerCallbackQuery();
@@ -262,5 +285,10 @@ bot.on("callback_query:data", async (ctx) => {
 bot.command(["s", "search"], handleSearch);
 bot.command("jumps", handleGlobalJumpsCommand);
 bot.command("leaderboard", handleLeaderboardCommand);
+bot.command("trending", handleTrendingCommand);
+bot.command("tags", handleTagsCommand);
+bot.command("series", handleSeriesCommand);
+bot.command("bonds", handleBondsCommand);
+bot.command("compare", handleCompareCommand);
 bot.on("inline_query", handleInlineSearch);
 bot.on("message:text", handlePolymarketLink);

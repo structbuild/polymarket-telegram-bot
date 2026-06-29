@@ -135,3 +135,49 @@ export function formatMarketHolders(
   lines.push(...footer(marketUrl));
   return lines.join("\n");
 }
+
+export function formatHolderHistory(
+  candles: { t: number; h?: number | null }[],
+  marketUrl?: string,
+  question?: string,
+): string {
+  const lines = header("📈 Holder History (72h)", question, 0, 1);
+  const recent = candles.slice(-12).reverse();
+  if (recent.length === 0) {
+    lines.push("<i>No holder history found.</i>");
+  } else {
+    for (const candle of recent) {
+      const date = new Date(candle.t * 1000).toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "UTC",
+      });
+      lines.push(`• ${date}: <code>${candle.h ?? 0}</code> holders`);
+    }
+  }
+  lines.push(...footer(marketUrl));
+  return lines.join("\n");
+}
+
+export function formatOutcomeBreakdown(
+  rows: { outcome: string; totalHolders: number; topHolder?: string; topUsd?: number }[],
+  marketUrl?: string,
+  question?: string,
+): string {
+  const lines = header("📊 Outcome Breakdown", question, 0, 1);
+  if (rows.length === 0) {
+    lines.push("<i>No outcomes found.</i>");
+  } else {
+    for (const row of rows) {
+      lines.push(`<b>${escapeHtml(row.outcome)}</b> — <code>${row.totalHolders}</code> holders`);
+      if (row.topHolder) {
+        const usd = row.topUsd != null ? ` · top <code>${formatUsd(row.topUsd)}</code>` : "";
+        lines.push(`   👤 ${escapeHtml(truncate(row.topHolder, 24))}${usd}`);
+      }
+    }
+  }
+  lines.push(...footer(marketUrl));
+  return lines.join("\n");
+}

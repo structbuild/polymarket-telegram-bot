@@ -8,6 +8,7 @@ import {
   formatMarkets,
   formatPositions,
   formatTopTrades,
+  formatPnlCalendar,
 } from "../format/trader-views.js";
 import { editPolymarketReply } from "./polymarket-refresh.js";
 import {
@@ -19,6 +20,7 @@ import {
   fetchTraderPositions,
   fetchTraderProfile,
   fetchTraderTopTrades,
+  fetchTraderPnlCalendar,
 } from "./trader.fetch.js";
 
 const POS_SIZE = 6;
@@ -98,6 +100,8 @@ export function buildTraderMenuKeyboard(cacheId: number): InlineKeyboard {
     .row()
     .text("🏷 Markets", `tr:${cacheId}:mkt:0`)
     .text("🏆 Top Trades", `tr:${cacheId}:top:0:w`)
+    .row()
+    .text("📅 Calendar", `tr:${cacheId}:cal:0`)
     .row()
     .text("🔄 Refresh", `tr:${cacheId}:ref:0`)
     .row()
@@ -211,6 +215,12 @@ export async function handleTraderView(ctx: BotContext) {
       const { items, hasMore } = await fetchTraderTopTrades(address, kind, page, TOP_SIZE);
       text = formatTopTrades(header, items, page, kind, hasMore);
       keyboard = buildTraderListKeyboard(cacheId, "top", page, hasMore, kind);
+      break;
+    }
+    case "cal": {
+      const entries = await fetchTraderPnlCalendar(address);
+      text = formatPnlCalendar(header, entries, page);
+      keyboard = buildTraderListKeyboard(cacheId, "cal", page, entries.length > (page + 1) * 10);
       break;
     }
     default:

@@ -1,3 +1,4 @@
+import { InlineKeyboard } from "grammy";
 import { type BotContext, replyParams } from "../bot.js";
 import {
   formatEvent,
@@ -29,6 +30,8 @@ import {
 } from "./polymarket-refresh.js";
 import { getPreferredMarketTimeframe } from "./market-timeframe-prefs.js";
 import { buildMarketDetailKeyboard } from "./top-holders.js";
+import { appendEventInsightButtons } from "./event-insights.js";
+import { fetchCryptoContextLine } from "./crypto-context.js";
 import { fetchTraderProfile, fetchTraderPnl } from "./trader.fetch.js";
 import { buildTraderMenuKeyboard, cacheTrader } from "./trader-views.js";
 
@@ -93,10 +96,26 @@ export async function replyWithEvent(ctx: BotContext, slug: string) {
     return;
   }
 
-  await replyWithOptionalPhoto(ctx, text, event.image_url, buildRefreshOnlyKeyboard(listRefreshData));
+  await replyWithOptionalPhoto(
+    ctx,
+    text,
+    event.image_url,
+    buildEventListKeyboard(event, botUsername, listRefreshData),
+  );
 }
 
-async function replyWithMarket(ctx: BotContext, slug: string) {
+function buildEventListKeyboard(
+  event: Parameters<typeof cacheEvent>[0],
+  botUsername: string | undefined,
+  refreshData: string,
+): InlineKeyboard {
+  const cacheId = cacheEvent(event, botUsername);
+  const kb = buildRefreshOnlyKeyboard(refreshData);
+  appendEventInsightButtons(kb, cacheId);
+  return kb;
+}
+
+export async function replyWithMarket(ctx: BotContext, slug: string) {
   const market = await fetchMarketBySlug(slug);
   if (!market) {
     await replyMissingMarket(ctx);
@@ -114,9 +133,12 @@ async function replyWithMarket(ctx: BotContext, slug: string) {
     tf,
     market,
   );
+  const cryptoLine = await fetchCryptoContextLine(market);
+  const body =
+    formatMarket(market, undefined, tf) + (cryptoLine ? `\n\n${cryptoLine}` : "");
   await replyWithOptionalPhoto(
     ctx,
-    withLastUpdatedFooter(formatMarket(market, undefined, tf)),
+    withLastUpdatedFooter(body),
     market.image_url,
     keyboard,
   );

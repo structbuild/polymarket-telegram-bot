@@ -1,12 +1,13 @@
 import { InlineKeyboard } from "grammy";
 import type { BotContext } from "../bot.js";
 import { replyParams } from "../bot.js";
-import { formatEventSearchResults, type SearchEvent } from "../format/search.js";
+import { formatCombinedSearchResults, type SearchEvent, type SearchMarket } from "../format/search.js";
 import { escapeHtml } from "../format/shared.js";
 import { struct } from "../struct.js";
 import { editPolymarketReply } from "./polymarket-refresh.js";
 import { replyPolymarketFetchError } from "./polymarket-link.errors.js";
 import { replyWithEvent } from "./polymarket-link.service.js";
+import { replyWithMarket } from "./polymarket-link.service.js";
 
 export const SEARCH_LIMIT = 6;
 const CACHE_TTL_MS = 10 * 60 * 1000;
@@ -85,17 +86,29 @@ function getSearchQuery(ctx: BotContext): string {
   return ctx.match?.toString().trim() ?? "";
 }
 
+function findExactMarketMatch(query: string, markets: SearchMarket[]): SearchMarket | null {
+  const normalizedQuery = normalizeSearchValue(query);
+  for (const market of markets) {
+    const title = normalizeSearchValue(market.question ?? market.title);
+    if (title === normalizedQuery) return market;
+    const slugMatch = normalizeSearchValue(market.market_slug?.replace(/-/g, " "));
+    if (slugMatch === normalizedQuery) return market;
+  }
+  return null;
+}
+
 async function fetchSearchPage(query: string, eventsPaginationKey?: string | null) {
   const response = await struct.search.search({
     q: query,
     limit: SEARCH_LIMIT,
     sort_by: "volume",
-    type: "events",
+    type: "events,markets",
     ...(eventsPaginationKey ? { events_pagination_key: eventsPaginationKey } : {}),
   });
 
   return {
     events: response.data.events ?? [],
+    markets: response.data.markets ?? [],
     hasMore: response.data.events_pagination?.has_more ?? false,
     nextKey: response.data.events_pagination?.pagination_key ?? null,
   };
@@ -119,14 +132,16 @@ async function replyWithSearchResults(
   ctx: BotContext,
   query: string,
   events: SearchEvent[],
+  markets: SearchMarket[],
   page: number,
   hasMore: boolean,
   cacheId: number,
 ) {
   const params = replyParams(ctx);
-  const text = formatEventSearchResults(
+  const text = formatCombinedSearchResults(
     query,
     events,
+    markets,
     ctx.me?.username,
     page,
     hasMore,
@@ -167,7 +182,7 @@ export async function handleSearchPagination(ctx: BotContext) {
   }
 
   try {
-    const { events, hasMore, nextKey } = await fetchSearchPage(
+    const { events, markets, hasMore, nextKey } = await fetchSearchPage(
       cached.query,
       cached.cursors[page],
     );
@@ -179,9 +194,10 @@ export async function handleSearchPagination(ctx: BotContext) {
       cached.cursors.length = page + 1;
     }
 
-    const text = formatEventSearchResults(
+    const text = formatCombinedSearchResults(
       cached.query,
       events,
+      markets,
       cached.botUsername ?? ctx.me?.username,
       page,
       hasMore,
@@ -202,7 +218,7 @@ export async function handleSearch(ctx: BotContext) {
 
   if (query.length < 2) {
     await ctx.reply(
-      "Usage: <code>/search &lt;event name&gt;</code>\nAlias: <code>/s &lt;event name&gt;</code>",
+      "Usage: <code>/search &lt;query&gt;</code>\nAlias: <code>/s &lt;query&gt;</code>\nSearches events and markets.",
       {
         parse_mode: "HTML",
         ...params,
@@ -212,18 +228,25 @@ export async function handleSearch(ctx: BotContext) {
   }
 
   try {
-    const { events, hasMore, nextKey } = await fetchSearchPage(query);
-    const exactMatch = findExactEventMatch(query, events);
-    const selectedEvent = exactMatch ?? (events.length === 1 ? events[0] : null);
-    const selectedSlug = selectedEvent?.event_slug ?? null;
+    const { events, markets, hasMore, nextKey } = await fetchSearchPage(query);
+    const exactEvent = findExactEventMatch(query, events);
+    const exactMarket = findExactMarketMatch(query, markets);
+    const selectedEvent = exactEvent ?? (events.length === 1 && markets.length === 0 ? events[0] : null);
+    const selectedMarket =
+      exactMarket ?? (markets.length === 1 && events.length === 0 ? markets[0] : null);
 
-    if (selectedSlug) {
-      await replyWithEvent(ctx, selectedSlug);
+    if (selectedEvent?.event_slug) {
+      await replyWithEvent(ctx, selectedEvent.event_slug);
       return;
     }
 
-    if (events.length === 0) {
-      await ctx.reply(`❌ No events found for <code>${escapeHtml(query)}</code>.`, {
+    if (selectedMarket?.market_slug) {
+      await replyWithMarket(ctx, selectedMarket.market_slug);
+      return;
+    }
+
+    if (events.length === 0 && markets.length === 0) {
+      await ctx.reply(`❌ No results for <code>${escapeHtml(query)}</code>.`, {
         parse_mode: "HTML",
         ...params,
       });
@@ -236,7 +259,7 @@ export async function handleSearch(ctx: BotContext) {
       cached.cursors[1] = nextKey;
     }
 
-    await replyWithSearchResults(ctx, query, events, 0, hasMore, cacheId);
+    await replyWithSearchResults(ctx, query, events, markets, 0, hasMore, cacheId);
   } catch (error) {
     await replyPolymarketFetchError(ctx, error);
   }

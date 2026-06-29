@@ -1,6 +1,7 @@
 import { InlineKeyboard } from "grammy";
 import type { BotContext } from "../bot.js";
 import { formatEvent, withLastUpdatedFooter } from "../format.js";
+import { appendEventInsightButtons } from "./event-insights.js";
 import type { EventRecord } from "../format/types.js";
 
 export const EVENT_PAGE_SIZE = 12;
@@ -56,6 +57,7 @@ export function buildPaginationKeyboard(
   kb.text(`${page + 1}/${totalPages}`, `ep:${cacheId}:noop`);
   if (page < totalPages - 1) kb.text("▶️", `ep:${cacheId}:${page + 1}`);
   kb.row().text("🔄 Refresh", `rfe:${cacheId}:${page}`);
+  appendEventInsightButtons(kb, cacheId);
   return kb;
 }
 
