@@ -19,7 +19,7 @@ import { handlePolymarketLink } from "./handlers/polymarket-link.js";
 import { replyWithTrader } from "./handlers/polymarket-link.service.js";
 import { getPreferredMarketTimeframe } from "./handlers/market-timeframe-prefs.js";
 import { handleMarketTimeframe } from "./handlers/market-timeframe.js";
-import { handleSearch } from "./handlers/search.js";
+import { handleSearch, handleSearchPagination } from "./handlers/search.js";
 import {
   allocMarketRefreshPayload,
   allocRefreshPayload,
@@ -234,6 +234,7 @@ bot.on("callback_query:data", async (ctx) => {
   if (data?.startsWith("pj:")) return handlePriceJumps(ctx);
   if (data?.startsWith("pp:")) return handlePriceJumpsPagination(ctx);
   if (data?.startsWith("tr:")) return handleTraderView(ctx);
+  if (data?.startsWith("sr:")) return handleSearchPagination(ctx);
   if (data === "close") {
     await ctx.deleteMessage();
     await ctx.answerCallbackQuery();
