@@ -16,13 +16,13 @@ export const CRYPTO_VARIANT_LABELS: Record<CryptoVariant, string> = {
 };
 
 const ASSET_EMOJI: Record<CryptoAsset, string> = {
-  BTC: "₿",
-  ETH: "Ξ",
-  XRP: "✕",
-  SOL: "◎",
-  DOGE: "Ð",
-  BNB: "🔶",
-  HYPE: "⚡",
+  BTC: "🟠",
+  ETH: "🟣",
+  XRP: "🔵",
+  SOL: "🟢",
+  DOGE: "🟡",
+  BNB: "🟨",
+  HYPE: "🔴",
 };
 
 export type CryptoMarketEntry = {
