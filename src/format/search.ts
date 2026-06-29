@@ -54,10 +54,12 @@ export function formatEventSearchResults(
   query: string,
   events: SearchEvent[],
   botUsername?: string,
+  page = 0,
   hasMore = false,
 ): string {
+  const pageLabel = page > 0 || hasMore ? ` <i>(page ${page + 1})</i>` : "";
   const lines = [
-    `🔎 <b>Event Results</b> for <code>${escapeHtml(query)}</code>`,
+    `🔎 <b>Event Results</b>${pageLabel} for <code>${escapeHtml(query)}</code>`,
     "",
     ...events.flatMap((event, index) =>
       index < events.length - 1
@@ -68,7 +70,7 @@ export function formatEventSearchResults(
 
   if (hasMore) {
     lines.push("");
-    lines.push("<i>Showing the first matches. Refine your query for narrower results.</i>");
+    lines.push("<i>More on the next page ▶️</i>");
   }
 
   return lines.join("\n");
