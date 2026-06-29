@@ -21,6 +21,16 @@ import { getPreferredMarketTimeframe } from "./handlers/market-timeframe-prefs.j
 import { handleMarketTimeframe } from "./handlers/market-timeframe.js";
 import { handleSearch, handleSearchPagination } from "./handlers/search.js";
 import {
+  handleGlobalJumpsCommand,
+  handleGlobalJumpsPagination,
+} from "./handlers/global-jumps.js";
+import {
+  handleLeaderboardCommand,
+  handleLeaderboardPagination,
+  handleLeaderboardTimeframe,
+} from "./handlers/leaderboard.js";
+import { handleInlineSearch } from "./handlers/inline-search.js";
+import {
   allocMarketRefreshPayload,
   allocRefreshPayload,
   buildRefreshOnlyKeyboard,
@@ -59,9 +69,15 @@ async function replyWelcome(ctx: BotContext) {
     "",
     "👀 Send a Polymarket event or market URL to view odds and outcomes.",
     "",
-    "🔍 Use <code>/search &lt;event name&gt;</code> or <code>/s &lt;event name&gt;</code> to search events.",
+    "🔍 Use <code>/search &lt;query&gt;</code> or type <code>@"
+      + (ctx.me?.username ?? "bot")
+      + " query</code> in any chat for inline search.",
     "",
-    "🔎 Send a trader profile URL or wallet address to view their positions and P&L.",
+    "⚡ <code>/jumps</code> — recent price jumps across top markets.",
+    "",
+    "🏆 <code>/leaderboard</code> — top traders by P&amp;L.",
+    "",
+    "🔎 Send a trader profile URL or wallet address to view their positions and P&amp;L.",
     "",
     "Paste a link to get started.",
   ].join("\n");
@@ -235,10 +251,16 @@ bot.on("callback_query:data", async (ctx) => {
   if (data?.startsWith("pp:")) return handlePriceJumpsPagination(ctx);
   if (data?.startsWith("tr:")) return handleTraderView(ctx);
   if (data?.startsWith("sr:")) return handleSearchPagination(ctx);
+  if (data?.startsWith("gj:")) return handleGlobalJumpsPagination(ctx);
+  if (data?.startsWith("lb:")) return handleLeaderboardPagination(ctx);
+  if (data?.startsWith("lbt:")) return handleLeaderboardTimeframe(ctx);
   if (data === "close") {
     await ctx.deleteMessage();
     await ctx.answerCallbackQuery();
   }
 });
 bot.command(["s", "search"], handleSearch);
+bot.command("jumps", handleGlobalJumpsCommand);
+bot.command("leaderboard", handleLeaderboardCommand);
+bot.on("inline_query", handleInlineSearch);
 bot.on("message:text", handlePolymarketLink);

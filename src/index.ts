@@ -24,6 +24,8 @@ const runner = run(bot, {
 bot.api.setMyCommands([
   { command: "start", description: "Welcome message and how to use the bot" },
   { command: "search", description: "Search Polymarket events (alias: /s)" },
+  { command: "jumps", description: "Price jumps across top open markets" },
+  { command: "leaderboard", description: "Top traders by P&L" },
 ]);
 
 runner.task()?.then(() => console.log("Bot stopped"));
