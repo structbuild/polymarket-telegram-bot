@@ -41,6 +41,11 @@ import {
   handleTrendingPagination,
 } from "./handlers/discovery.js";
 import { handleCompareCommand } from "./handlers/compare.js";
+import {
+  handleCryptoCommand,
+  handleCryptoRefresh,
+  handleCryptoTimeframe,
+} from "./handlers/crypto.js";
 import { handleOrderBook } from "./handlers/order-book.js";
 import { handleEventInsights } from "./handlers/event-insights.js";
 import {
@@ -91,6 +96,8 @@ async function replyWelcome(ctx: BotContext) {
     "🏆 <code>/leaderboard</code> — top traders by P&amp;L.",
     "",
     "🔥 <code>/trending</code> · 🏷 <code>/tags</code> · 📎 <code>/bonds</code> · 🔁 <code>/series</code>",
+    "",
+    "🪙 <code>/crypto</code> — active BTC/ETH/etc up/down windows (5m–1d).",
     "",
     "⚖️ <code>/compare</code> — side-by-side markets or traders.",
     "",
@@ -275,6 +282,8 @@ bot.on("callback_query:data", async (ctx) => {
   if (data?.startsWith("tgp:")) return handleTagMarketsPagination(ctx);
   if (data?.startsWith("tag:")) return handleTagMarkets(ctx);
   if (data?.startsWith("bon:")) return handleBondsPagination(ctx);
+  if (data?.startsWith("cr:")) return handleCryptoRefresh(ctx);
+  if (data?.startsWith("crt:")) return handleCryptoTimeframe(ctx);
   if (data?.startsWith("ob:")) return handleOrderBook(ctx);
   if (data?.startsWith("ei:")) return handleEventInsights(ctx);
   if (data === "close") {
@@ -290,5 +299,6 @@ bot.command("tags", handleTagsCommand);
 bot.command("series", handleSeriesCommand);
 bot.command("bonds", handleBondsCommand);
 bot.command("compare", handleCompareCommand);
+bot.command("crypto", handleCryptoCommand);
 bot.on("inline_query", handleInlineSearch);
 bot.on("message:text", handlePolymarketLink);

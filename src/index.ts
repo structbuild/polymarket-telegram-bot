@@ -31,6 +31,7 @@ bot.api.setMyCommands([
   { command: "bonds", description: "Near-resolution bond markets" },
   { command: "series", description: "Recurring market series" },
   { command: "compare", description: "Compare two markets or traders" },
+  { command: "crypto", description: "Crypto up/down markets by window (5m–1d)" },
 ]);
 
 runner.task()?.then(() => console.log("Bot stopped"));

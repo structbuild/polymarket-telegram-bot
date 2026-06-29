@@ -21,6 +21,7 @@ Open-source Telegram bot for Polymarket prediction markets. Look up real-time od
 - **`/jumps`** — Global price jump scanner across top markets
 - **`/leaderboard`** — Top traders by P&L (24h / 7d / 30d / all-time)
 - **`/compare`** — Side-by-side two markets or two traders
+- **`/crypto`** — Active crypto up/down markets by window (5m, 15m, 1h, 4h, 1d) with spot prices and deep links
 
 ### Market analytics (inline buttons on any market)
 - Top holders, top traders, recent trades
@@ -38,8 +39,9 @@ Open-source Telegram bot for Polymarket prediction markets. Look up real-time od
 - **Volume chart** — Top markets by volume over 1D / 1W / 1M
 - **Resolved outcomes** — Historical outcome map
 
-### Crypto context
-- BTC/ETH spot price footer on crypto-linked markets
+### Crypto
+- **`/crypto`** — Live up/down windows for BTC, ETH, SOL, and more with Polymarket market links
+- BTC/ETH spot price footer on crypto-linked market cards
 
 ## How It Works
 
