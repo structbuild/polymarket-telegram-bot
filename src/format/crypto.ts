@@ -28,9 +28,53 @@ const ASSET_EMOJI: Record<CryptoAsset, string> = {
 export type CryptoMarketEntry = {
   asset: CryptoAsset;
   priceRow: AssetPriceHistoryRow | null;
+  spotPrice: number | null;
   event: Event | null;
   market: EventMarket | null;
 };
+
+export function cryptoEventSlug(
+  asset: CryptoAsset,
+  variant: CryptoVariant,
+  startTimeSeconds: number,
+): string {
+  return `${asset.toLowerCase()}-updown-${variant}-${startTimeSeconds}`;
+}
+
+function isUsablePrice(price: number | null | undefined): price is number {
+  return price != null && price > 0;
+}
+
+export function resolveWindowPrice(
+  row: AssetPriceHistoryRow,
+  spotPrice: number | null,
+): {
+  current: number | null;
+  open: number | null;
+  pct: number | null;
+  outcome: string | null;
+  isClosed: boolean;
+} {
+  const open = isUsablePrice(row.asset_open_price) ? row.asset_open_price : null;
+  const isClosed = row.outcome != null && isUsablePrice(row.asset_close_price);
+  const current = isClosed
+    ? row.asset_close_price
+    : isUsablePrice(spotPrice)
+      ? spotPrice
+      : open;
+
+  let pct = row.price_change_percentage ?? null;
+  if (!isClosed && open != null && current != null) {
+    pct = ((current - open) / open) * 100;
+  }
+
+  let outcome = row.outcome ?? null;
+  if (!isClosed && open != null && current != null) {
+    outcome = current > open ? "up" : "down";
+  }
+
+  return { current, open, pct, outcome, isClosed };
+}
 
 export function normalizeCryptoVariant(raw: string): CryptoVariant {
   if ((CRYPTO_VARIANTS as readonly string[]).includes(raw)) {
@@ -117,12 +161,27 @@ function formatCryptoEntry(
 
   const row = entry.priceRow;
   if (row) {
-    const price = formatAssetPrice(row.asset_close_price);
-    const pct = formatPctSuffix(row.price_change_percentage);
-    const direction = formatOutcome(row.outcome);
+    const { current, open, pct, outcome, isClosed } = resolveWindowPrice(row, entry.spotPrice);
+    const direction = formatOutcome(outcome);
     const window = formatWindowRemaining(row.end_time);
-    lines.push(`   💵 <code>${price}</code>${escapeHtml(pct)} · ${direction}`);
-    if (window) lines.push(`   ⏱ ${escapeHtml(window)}`);
+
+    if (current != null) {
+      lines.push(`   💵 <code>${formatAssetPrice(current)}</code>${escapeHtml(formatPctSuffix(pct))} · ${direction}`);
+    } else if (open != null) {
+      lines.push(`   💵 <code>${formatAssetPrice(open)}</code> · ${direction}`);
+    } else {
+      lines.push("   <i>No price data</i>");
+    }
+
+    if (window) {
+      const strike =
+        !isClosed && open != null && current != null && open !== current
+          ? `Strike ${formatAssetPrice(open)} · `
+          : open != null && current == null
+            ? `Strike ${formatAssetPrice(open)} · `
+            : "";
+      lines.push(`   ⏱ ${escapeHtml(`${strike}${window}`)}`);
+    }
   } else {
     lines.push("   <i>No price data</i>");
   }
@@ -132,8 +191,8 @@ function formatCryptoEntry(
 
   if (eventUrl && marketUrl && eventUrl !== marketUrl) {
     lines.push(`   🔗 <a href="${eventUrl}">Event</a>`);
-  } else if (!headingUrl) {
-    lines.push(`   <i>Series: ${escapeHtml(cryptoSeriesSlug(entry.asset, variant))}</i>`);
+  } else if (!headingUrl && row?.start_time) {
+    lines.push(`   <i>Event: ${escapeHtml(cryptoEventSlug(entry.asset, variant, row.start_time))}</i>`);
   }
 
   return lines;

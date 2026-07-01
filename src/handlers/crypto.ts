@@ -5,6 +5,7 @@ import {
   CRYPTO_ASSETS,
   CRYPTO_VARIANT_LABELS,
   CRYPTO_VARIANTS,
+  cryptoEventSlug,
   cryptoSeriesSlug,
   formatCryptoMarkets,
   normalizeCryptoVariant,
@@ -61,6 +62,23 @@ function getCachedCrypto(id: number): CachedCrypto | undefined {
   return entry;
 }
 
+async function fetchAssetSpot(asset: CryptoAsset): Promise<number | null> {
+  for (const resolution of ["1S", "1"] as const) {
+    try {
+      const response = await struct.assets.getAssetCandlestick({
+        asset_symbol: asset,
+        resolution,
+        count_back: 1,
+      });
+      const bars = response.data ?? [];
+      const bar = bars[bars.length - 1];
+      const price = bar?.c ?? bar?.o;
+      if (price != null && price > 0) return price;
+    } catch {}
+  }
+  return null;
+}
+
 async function fetchAssetWindow(asset: CryptoAsset, variant: CryptoVariant) {
   try {
     const response = await struct.assets.getAssetHistory({
@@ -74,7 +92,26 @@ async function fetchAssetWindow(asset: CryptoAsset, variant: CryptoVariant) {
   }
 }
 
-async function fetchSeriesEvent(asset: CryptoAsset, variant: CryptoVariant) {
+async function fetchCryptoEvent(
+  asset: CryptoAsset,
+  variant: CryptoVariant,
+  priceRow: CryptoMarketEntry["priceRow"],
+) {
+  if (priceRow?.start_time) {
+    try {
+      const slug = cryptoEventSlug(asset, variant, priceRow.start_time);
+      const response = await struct.events.getEventBySlug({
+        slug,
+        include_tags: false,
+        include_markets: true,
+        include_metrics: false,
+      });
+      const data = response.data;
+      const event = Array.isArray(data) ? data[0] : data;
+      if (event) return event;
+    } catch {}
+  }
+
   try {
     const response = await struct.series.getSeriesEvents({
       identifier: cryptoSeriesSlug(asset, variant),
@@ -92,12 +129,13 @@ async function fetchSeriesEvent(asset: CryptoAsset, variant: CryptoVariant) {
 async function fetchCryptoEntries(variant: CryptoVariant): Promise<CryptoMarketEntry[]> {
   const results = await Promise.all(
     CRYPTO_ASSETS.map(async (asset) => {
-      const [priceRow, event] = await Promise.all([
+      const [priceRow, spotPrice] = await Promise.all([
         fetchAssetWindow(asset, variant),
-        fetchSeriesEvent(asset, variant),
+        fetchAssetSpot(asset),
       ]);
+      const event = await fetchCryptoEvent(asset, variant, priceRow);
       const market = pickActiveMarket(event);
-      return { asset, priceRow, event, market };
+      return { asset, priceRow, spotPrice, event, market };
     }),
   );
   return results;
