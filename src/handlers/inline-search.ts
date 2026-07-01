@@ -1,25 +1,30 @@
 import { InlineKeyboard } from "grammy";
 import type { InlineQueryResultArticle } from "grammy/types";
 import type { BotContext } from "../bot.js";
+import { eventDeepLink, marketDeepLink, traderStartPayload, deepLink } from "../format/links.js";
 import { escapeHtml, formatUsd, truncate } from "../format/shared.js";
 import { struct } from "../struct.js";
 
 const INLINE_LIMIT = 5;
 
-function buildEventDeepLink(slug: string, botUsername?: string): string | null {
-  if (!botUsername) return null;
-  return `https://t.me/${botUsername}?start=e_${encodeURIComponent(slug)}`;
+function buildEventDeepLink(event: { event_slug?: string | null; id?: string | null }): string | null {
+  return eventDeepLink({ eventSlug: event.event_slug, eventId: event.id });
 }
 
-function buildMarketDeepLink(slug: string, botUsername?: string): string | null {
-  if (!botUsername) return null;
-  return `https://t.me/${botUsername}?start=m_${slug}`;
+function buildMarketDeepLink(market: {
+  market_slug?: string | null;
+  condition_id?: string | null;
+  event_slug?: string | null;
+}): string | null {
+  return marketDeepLink({
+    marketSlug: market.market_slug,
+    conditionId: market.condition_id,
+    eventSlug: market.event_slug,
+  });
 }
 
-function buildTraderDeepLink(address: string, botUsername?: string): string | null {
-  if (!botUsername) return null;
-  const hex = address.replace(/^0x/, "").toLowerCase();
-  return `https://t.me/${botUsername}?start=${hex}`;
+function buildTraderDeepLink(address: string): string | null {
+  return deepLink(traderStartPayload(address));
 }
 
 function getEventVolume(event: {
@@ -124,7 +129,7 @@ export async function handleInlineSearch(ctx: BotContext) {
       if (!slug) continue;
 
       const title = truncate(event.title ?? "Untitled Event", 64);
-      const deepLink = buildEventDeepLink(slug, botUsername);
+      const deepLink = buildEventDeepLink(event);
       results.push({
         type: "article",
         id: `event:${slug}`,
@@ -144,7 +149,7 @@ export async function handleInlineSearch(ctx: BotContext) {
       if (!slug) continue;
 
       const title = truncate(market.question ?? market.title ?? "Untitled Market", 64);
-      const deepLink = buildMarketDeepLink(slug, botUsername);
+      const deepLink = buildMarketDeepLink(market);
       results.push({
         type: "article",
         id: `market:${slug}`,
@@ -165,7 +170,7 @@ export async function handleInlineSearch(ctx: BotContext) {
 
       const name = trader.name ?? trader.pseudonym ?? `${address.slice(0, 6)}...${address.slice(-4)}`;
       const title = truncate(name, 64);
-      const deepLink = buildTraderDeepLink(address, botUsername);
+      const deepLink = buildTraderDeepLink(address);
       results.push({
         type: "article",
         id: `trader:${address.toLowerCase()}`,

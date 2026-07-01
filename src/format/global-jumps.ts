@@ -1,3 +1,4 @@
+import { marketDeepLink } from "./links.js";
 import { escapeHtml, formatUsd, truncate } from "./shared.js";
 
 export type GlobalPriceJump = {
@@ -35,9 +36,12 @@ function buildMarketUrl(jump: GlobalPriceJump): string | null {
   return `https://polymarket.com/event/${jump.eventSlug}/${jump.marketSlug}`;
 }
 
-function buildBotMarketUrl(jump: GlobalPriceJump, botUsername?: string): string | null {
-  if (!botUsername || !jump.marketSlug) return null;
-  return `https://t.me/${botUsername}?start=m_${jump.marketSlug}`;
+function buildBotMarketUrl(jump: GlobalPriceJump): string | null {
+  return marketDeepLink({
+    marketSlug: jump.marketSlug,
+    conditionId: jump.condition_id,
+    eventSlug: jump.eventSlug,
+  });
 }
 
 function formatJumpLine(
@@ -46,7 +50,7 @@ function formatJumpLine(
 ): string[] {
   const arrow = jump.direction === "up" ? "📈" : "📉";
   const sign = jump.direction === "up" ? "+" : "-";
-  const botUrl = buildBotMarketUrl(jump, botUsername);
+  const botUrl = buildBotMarketUrl(jump);
   const title = truncate(jump.question, 72);
   const heading = botUrl
     ? `<a href="${botUrl}"><b>${escapeHtml(title)}</b></a>`

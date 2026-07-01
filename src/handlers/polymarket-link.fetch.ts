@@ -17,6 +17,13 @@ export async function fetchEventBySlug(
   return unwrapStructData(response.data);
 }
 
+export async function fetchEventByIdentifier(
+  identifier: string,
+): Promise<StructEntity | null> {
+  const response = await struct.events.getEvent({ identifier, include_tags: false });
+  return unwrapStructData(response.data);
+}
+
 export async function fetchMarketBySlug(
   slug: string,
 ): Promise<StructEntity | null> {

@@ -1,17 +1,8 @@
 import type { BondMarket, MarketResponse, Series } from "@structbuild/sdk";
+import { marketDeepLink } from "./links.js";
 import { escapeHtml, formatCents, formatShortDate, formatUsd, statusEmoji, truncate } from "./shared.js";
 
 type TagLike = { label?: string; slug?: string | null; volume_usd?: number; event_count?: number };
-
-function marketDeepLink(slug: string | null | undefined, botUsername?: string): string | null {
-  if (!slug || !botUsername) return null;
-  return `https://t.me/${botUsername}?start=m_${slug}`;
-}
-
-function eventDeepLink(slug: string | null | undefined, botUsername?: string): string | null {
-  if (!slug || !botUsername) return null;
-  return `https://t.me/${botUsername}?start=e_${encodeURIComponent(slug)}`;
-}
 
 function getVolume(market: MarketResponse): number | undefined {
   return (
@@ -49,7 +40,7 @@ export function formatTrendingMarkets(
   markets.forEach((market, i) => {
     const slug = market.market_slug;
     const title = truncate(market.question ?? market.title ?? "Untitled", 72);
-    const url = marketDeepLink(slug, botUsername);
+    const url = marketDeepLink({ marketSlug: slug, conditionId: market.condition_id });
     const heading = url ? `<a href="${url}"><b>${escapeHtml(title)}</b></a>` : `<b>${escapeHtml(title)}</b>`;
     const vol = getVolume(market);
     const parts = [statusEmoji(market.status), heading];
@@ -109,7 +100,7 @@ export function formatTagMarkets(
   markets.forEach((market, i) => {
     const slug = market.market_slug;
     const title = truncate(market.question ?? market.title ?? "Untitled", 72);
-    const url = marketDeepLink(slug, botUsername);
+    const url = marketDeepLink({ marketSlug: slug, conditionId: market.condition_id });
     const heading = url ? `<a href="${url}"><b>${escapeHtml(title)}</b></a>` : `<b>${escapeHtml(title)}</b>`;
     const vol = getVolume(market);
     lines.push(`${i + 1 + page * pageSize}. ${heading}`);
@@ -158,7 +149,7 @@ export function formatBondMarkets(
   }
   bonds.forEach((bond, i) => {
     const title = truncate(bond.question ?? bond.title ?? "Untitled", 72);
-    const url = marketDeepLink(bond.market_slug, botUsername);
+    const url = marketDeepLink({ marketSlug: bond.market_slug, conditionId: bond.condition_id });
     const heading = url ? `<a href="${url}"><b>${escapeHtml(title)}</b></a>` : `<b>${escapeHtml(title)}</b>`;
     const best = bond.outcomes?.[bond.best_outcome_index];
     const price = best?.price != null ? formatCents(best.price) : "—";
