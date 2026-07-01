@@ -21,6 +21,34 @@ import { getPreferredMarketTimeframe } from "./handlers/market-timeframe-prefs.j
 import { handleMarketTimeframe } from "./handlers/market-timeframe.js";
 import { handleSearch, handleSearchPagination } from "./handlers/search.js";
 import {
+  handleGlobalJumpsCommand,
+  handleGlobalJumpsPagination,
+} from "./handlers/global-jumps.js";
+import {
+  handleLeaderboardCommand,
+  handleLeaderboardPagination,
+  handleLeaderboardTimeframe,
+} from "./handlers/leaderboard.js";
+import { handleInlineSearch } from "./handlers/inline-search.js";
+import {
+  handleBondsCommand,
+  handleBondsPagination,
+  handleSeriesCommand,
+  handleTagMarkets,
+  handleTagMarketsPagination,
+  handleTagsCommand,
+  handleTrendingCommand,
+  handleTrendingPagination,
+} from "./handlers/discovery.js";
+import { handleCompareCommand } from "./handlers/compare.js";
+import {
+  handleCryptoCommand,
+  handleCryptoRefresh,
+  handleCryptoTimeframe,
+} from "./handlers/crypto.js";
+import { handleOrderBook } from "./handlers/order-book.js";
+import { handleEventInsights } from "./handlers/event-insights.js";
+import {
   allocMarketRefreshPayload,
   allocRefreshPayload,
   buildRefreshOnlyKeyboard,
@@ -59,9 +87,21 @@ async function replyWelcome(ctx: BotContext) {
     "",
     "👀 Send a Polymarket event or market URL to view odds and outcomes.",
     "",
-    "🔍 Use <code>/search &lt;event name&gt;</code> or <code>/s &lt;event name&gt;</code> to search events.",
+    "🔍 Use <code>/search &lt;query&gt;</code> or type <code>@"
+      + (ctx.me?.username ?? "bot")
+      + " query</code> in any chat for inline search.",
     "",
-    "🔎 Send a trader profile URL or wallet address to view their positions and P&L.",
+    "⚡ <code>/jumps</code> — recent price jumps across top markets.",
+    "",
+    "🏆 <code>/leaderboard</code> — top traders by P&amp;L.",
+    "",
+    "🔥 <code>/trending</code> · 🏷 <code>/tags</code> · 📎 <code>/bonds</code> · 🔁 <code>/series</code>",
+    "",
+    "🪙 <code>/crypto</code> — active BTC/ETH/etc up/down windows (5m–1d).",
+    "",
+    "⚖️ <code>/compare</code> — side-by-side markets or traders.",
+    "",
+    "🔎 Send a Polymarket profile URL, wallet address, or link.",
     "",
     "Paste a link to get started.",
   ].join("\n");
@@ -235,10 +275,30 @@ bot.on("callback_query:data", async (ctx) => {
   if (data?.startsWith("pp:")) return handlePriceJumpsPagination(ctx);
   if (data?.startsWith("tr:")) return handleTraderView(ctx);
   if (data?.startsWith("sr:")) return handleSearchPagination(ctx);
+  if (data?.startsWith("gj:")) return handleGlobalJumpsPagination(ctx);
+  if (data?.startsWith("lb:")) return handleLeaderboardPagination(ctx);
+  if (data?.startsWith("lbt:")) return handleLeaderboardTimeframe(ctx);
+  if (data?.startsWith("trn:")) return handleTrendingPagination(ctx);
+  if (data?.startsWith("tgp:")) return handleTagMarketsPagination(ctx);
+  if (data?.startsWith("tag:")) return handleTagMarkets(ctx);
+  if (data?.startsWith("bon:")) return handleBondsPagination(ctx);
+  if (data?.startsWith("cr:")) return handleCryptoRefresh(ctx);
+  if (data?.startsWith("crt:")) return handleCryptoTimeframe(ctx);
+  if (data?.startsWith("ob:")) return handleOrderBook(ctx);
+  if (data?.startsWith("ei:")) return handleEventInsights(ctx);
   if (data === "close") {
     await ctx.deleteMessage();
     await ctx.answerCallbackQuery();
   }
 });
 bot.command(["s", "search"], handleSearch);
+bot.command("jumps", handleGlobalJumpsCommand);
+bot.command("leaderboard", handleLeaderboardCommand);
+bot.command("trending", handleTrendingCommand);
+bot.command("tags", handleTagsCommand);
+bot.command("series", handleSeriesCommand);
+bot.command("bonds", handleBondsCommand);
+bot.command("compare", handleCompareCommand);
+bot.command("crypto", handleCryptoCommand);
+bot.on("inline_query", handleInlineSearch);
 bot.on("message:text", handlePolymarketLink);

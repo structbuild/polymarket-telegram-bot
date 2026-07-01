@@ -23,7 +23,15 @@ const runner = run(bot, {
 
 bot.api.setMyCommands([
   { command: "start", description: "Welcome message and how to use the bot" },
-  { command: "search", description: "Search Polymarket events (alias: /s)" },
+  { command: "search", description: "Search events and markets (alias: /s)" },
+  { command: "jumps", description: "Price jumps across top open markets" },
+  { command: "leaderboard", description: "Top traders by P&L" },
+  { command: "trending", description: "Top open markets by volume" },
+  { command: "tags", description: "Browse markets by tag" },
+  { command: "bonds", description: "Near-resolution bond markets" },
+  { command: "series", description: "Recurring market series" },
+  { command: "compare", description: "Compare two markets or traders" },
+  { command: "crypto", description: "Crypto up/down markets by window (5m–1d)" },
 ]);
 
 runner.task()?.then(() => console.log("Bot stopped"));

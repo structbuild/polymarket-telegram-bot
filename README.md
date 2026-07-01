@@ -6,18 +6,48 @@ Open-source Telegram bot for Polymarket prediction markets. Look up real-time od
 
 ## Features
 
+### Lookup & search
 - **Market Lookup** — Send any Polymarket URL to get live odds, volume, liquidity, and outcome prices
 - **Event Overview** — Paste an event link to see all markets within it, with paginated navigation
-- **Event Search** — Use `/s <query>` or `/search <query>` to find Polymarket events by name
-- **Trader Profiles** — Send a wallet address (`0x...`) to view a trader's lifetime P&L, win rate, and stats
-- **Top Holders** — Tap the inline button on any market to see the top 5 holders per outcome
-- **Deep Links** — Share bot links with embedded market slugs or condition IDs that auto-load on open
+- **Event Search** — `/search` or `/s` finds events and markets; inline mode via `@YourBot query`
+- **Trader Profiles** — Send a wallet address or `polymarket.com/profile/0x…` URL
+- **Deep Links** — Share bot links with embedded market slugs or condition IDs
+
+### Discovery
+- **`/trending`** — Top open markets by 24h volume
+- **`/tags`** — Browse markets by tag/category
+- **`/bonds`** — Near-resolution bond markets with APY
+- **`/series`** — Recurring market series
+- **`/jumps`** — Global price jump scanner across top markets
+- **`/leaderboard`** — Top traders by P&L (24h / 7d / 30d / all-time)
+- **`/compare`** — Side-by-side two markets or two traders
+- **`/crypto`** — Active crypto up/down markets by window (5m, 15m, 1h, 4h, 1d) with spot prices and deep links
+
+### Market analytics (inline buttons on any market)
+- Top holders, top traders, recent trades
+- **Order book** — Bid/ask depth and spread
+- **Holder history** — Holder count trend (72h)
+- **Outcome breakdown** — Holders per Yes/No side
+- Price jumps, timeframe metrics, refresh
+
+### Trader analytics
+- Open/closed positions, activity, categories, markets traded, top wins/losses
+- **PnL calendar** — Daily P&L history
+- Positions enriched with event metadata via batch Struct lookups
+
+### Event insights (inline buttons on event views)
+- **Volume chart** — Top markets by volume over 1D / 1W / 1M
+- **Resolved outcomes** — Historical outcome map
+
+### Crypto
+- **`/crypto`** — Live up/down windows for BTC, ETH, SOL, and more with Polymarket market links
+- BTC/ETH spot price footer on crypto-linked market cards
 
 ## How It Works
 
 ```
-User sends a Polymarket URL, wallet address, or `/search` query
-  → Bot parses input type (market, event, trader, or event search)
+User sends a URL, wallet, /search, /trending, /leaderboard, etc.
+  → Bot parses input or command
   → Fetches data from Struct API
   → Formats and replies with rich Telegram messages + inline buttons
 ```
@@ -69,6 +99,30 @@ bun run start
 bun run start:node
 ```
 
+## Bot Commands
+
+| Command | Description |
+|---------|-------------|
+| `/start` | Welcome & usage |
+| `/search`, `/s` | Search events and markets |
+| `/trending` | Top markets by volume |
+| `/tags` | Browse by tag |
+| `/bonds` | Bond screener |
+| `/series` | Market series list |
+| `/jumps` | Global price jumps |
+| `/leaderboard` | Top traders |
+| `/compare` | Compare two markets or traders |
+
+## Deep links from alerts bot
+
+Your alerts bot can deep-link into this scanner:
+
+```
+https://t.me/YourScannerBot?start=m_{market_slug}
+https://t.me/YourScannerBot?start=e_{event_slug}
+https://t.me/YourScannerBot?start={40_char_wallet_hex}
+```
+
 ## Project Structure
 
 ```
@@ -78,31 +132,15 @@ src/
 ├── env.ts                 # Environment variable validation
 ├── struct.ts              # Struct SDK client initialization
 ├── polymarket-url.ts      # URL parsing & input classification
-├── format/
-│   ├── market.ts          # Market card formatting
-│   ├── event.ts           # Event overview formatting
-│   ├── trader.ts          # Trader profile formatting
-│   ├── holders.ts         # Top holders formatting
-│   ├── outcomes.ts        # Outcome & probability extraction
-│   ├── shared.ts          # Shared formatting utilities
-│   └── types.ts           # TypeScript types
-└── handlers/
-    ├── polymarket-link.ts # Main message handler
-    ├── polymarket-link.service.ts  # Route by input type
-    ├── polymarket-link.fetch.ts    # Struct API calls
-    ├── polymarket-link.reply.ts    # Reply utilities
-    ├── polymarket-link.errors.ts   # Error handling
-    ├── event-pagination.ts         # Paginated event navigation
-    ├── top-holders.ts              # Top holders callback handler
-    └── trader.fetch.ts             # Trader data fetching
+├── format/                # Message formatters
+└── handlers/              # Commands, callbacks, API fetch wrappers
 ```
 
 ## Built With
 
-- [Struct SDK](https://www.struct.to) — Polymarket data API (markets, events, traders, holders)
-- [grammY](https://grammy.dev) — Telegram Bot framework for TypeScript
-- [Bun](https://bun.sh) — JavaScript runtime & package manager
-- [TypeScript](https://www.typescriptlang.org)
+- [Struct SDK](https://www.struct.to) — Polymarket data API
+- [grammY](https://grammy.dev) — Telegram Bot framework
+- [Bun](https://bun.sh) — JavaScript runtime
 
 ## License
 

@@ -5,6 +5,8 @@ const POLYMARKET_MARKET_RE =
   /^https?:\/\/(?:www\.)?polymarket\.com\/event\/[a-z0-9-]+\/([a-z0-9-]+)$/;
 const POLYMARKET_MARKET_PATH_RE =
   /^https?:\/\/(?:www\.)?polymarket\.com\/market\/([a-z0-9-]+)$/;
+const POLYMARKET_PROFILE_RE =
+  /^https?:\/\/(?:www\.)?polymarket\.com\/profile\/(0x[0-9a-fA-F]{40})$/;
 
 export type PolymarketUrl =
   | { type: "event"; slug: string }
@@ -26,6 +28,9 @@ function matchPolymarketUrl(raw: string): PolymarketUrl | null {
 
   const eventMatch = url.match(POLYMARKET_EVENT_RE);
   if (eventMatch) return { type: "event", slug: eventMatch[1] };
+
+  const profileMatch = url.match(POLYMARKET_PROFILE_RE);
+  if (profileMatch) return { type: "trader", address: profileMatch[1].toLowerCase() };
 
   return null;
 }

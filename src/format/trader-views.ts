@@ -1,6 +1,7 @@
 import type {
   CategoryEntry,
   MarketEntry,
+  PnlCandleEntry,
   PnlExitMarker,
   PositionEntry,
   Trade,
@@ -208,4 +209,32 @@ export function formatTopTrades(
     return [head, `   ${meta.join(" • ")}`];
   });
   return render(header, heading, page, rows, hasMore, "trades");
+}
+
+export function formatPnlCalendar(
+  header: string,
+  entries: PnlCandleEntry[],
+  page: number,
+): string {
+  const pageSize = 10;
+  const slice = entries.slice(page * pageSize, (page + 1) * pageSize);
+  const hasMore = entries.length > (page + 1) * pageSize;
+  const lines = [header, "", `<b>📅 PnL Calendar</b> <i>(page ${page + 1})</i>`, ""];
+  if (slice.length === 0) {
+    lines.push("<i>No calendar data found.</i>");
+    return lines.join("\n");
+  }
+  for (const entry of slice) {
+    const date = new Date(entry.t * 1000).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+    const emoji = entry.pnl >= 0 ? "🟢" : "🔴";
+    lines.push(`${emoji} ${date}: <code>${formatSignedUsd(entry.pnl)}</code>`);
+  }
+  if (hasMore) {
+    lines.push("");
+    lines.push("<i>More on the next page ▶️</i>");
+  }
+  return lines.join("\n");
 }
