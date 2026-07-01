@@ -105,24 +105,34 @@ function formatAssetPrice(price: number): string {
   return `$${price.toFixed(4)}`;
 }
 
-function formatOutcome(outcome: string | null | undefined): string {
-  if (outcome === "up") return "🟢 Up";
-  if (outcome === "down") return "🔴 Down";
-  return "⏳ Open";
+function formatOutcomeEmoji(outcome: string | null | undefined): string {
+  if (outcome === "up") return "🟢";
+  if (outcome === "down") return "🔴";
+  return "⏳";
 }
 
-function formatWindowRemaining(endTime: number | null | undefined): string | null {
+function formatWindowShort(endTime: number | null | undefined): string | null {
   if (endTime == null) return null;
   const remaining = endTime - Math.floor(Date.now() / 1000);
-  if (remaining <= 0) return "window ended";
+  if (remaining <= 0) return "ended";
   const minutes = Math.floor(remaining / 60);
   const seconds = remaining % 60;
-  if (minutes >= 60) {
-    const hours = Math.floor(minutes / 60);
-    return `${hours}h ${minutes % 60}m left`;
-  }
-  if (minutes > 0) return `${minutes}m ${seconds}s left`;
-  return `${seconds}s left`;
+  if (minutes >= 60) return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
+}
+
+function formatCompactOdds(market: EventMarket | null): string | null {
+  if (!market?.outcomes?.length) return null;
+  const parts = market.outcomes
+    .filter((o) => o.price != null)
+    .slice(0, 2)
+    .map((o) => {
+      const name = (o.name ?? "").toLowerCase();
+      const prefix = name.includes("up") || name === "yes" ? "↑" : "↓";
+      return `${prefix}${formatCents(o.price)}`;
+    });
+  return parts.length ? parts.join(" ") : null;
 }
 
 function pickActiveMarket(event: Event | null): EventMarket | null {
@@ -132,70 +142,40 @@ function pickActiveMarket(event: Event | null): EventMarket | null {
   return open ?? markets[0] ?? null;
 }
 
-function formatMarketOdds(market: EventMarket | null): string | null {
-  if (!market?.outcomes?.length) return null;
-  const parts = market.outcomes
-    .filter((o) => o.price != null)
-    .slice(0, 2)
-    .map((o) => `${o.name} ${formatCents(o.price)}`);
-  return parts.length ? parts.join(" · ") : null;
-}
-
 function formatCryptoEntry(
   entry: CryptoMarketEntry,
-  variant: CryptoVariant,
   botUsername?: string,
-): string[] {
+): string {
   const emoji = ASSET_EMOJI[entry.asset];
   const eventSlug = entry.event?.event_slug;
   const marketSlug = entry.market?.market_slug;
-  const eventUrl = eventDeepLink(eventSlug, botUsername);
-  const marketUrl = marketDeepLink(marketSlug, botUsername);
-  const headingUrl = marketUrl ?? eventUrl;
+  const url = marketDeepLink(marketSlug, botUsername) ?? eventDeepLink(eventSlug, botUsername);
   const label = `${emoji} ${entry.asset}`;
-  const heading = headingUrl
-    ? `<a href="${headingUrl}"><b>${escapeHtml(label)}</b></a>`
+  const heading = url
+    ? `<a href="${url}"><b>${escapeHtml(label)}</b></a>`
     : `<b>${escapeHtml(label)}</b>`;
 
-  const lines = [heading];
-
   const row = entry.priceRow;
-  if (row) {
-    const { current, open, pct, outcome, isClosed } = resolveWindowPrice(row, entry.spotPrice);
-    const direction = formatOutcome(outcome);
-    const window = formatWindowRemaining(row.end_time);
+  if (!row) return `${heading} · <i>no data</i>`;
 
-    if (current != null) {
-      lines.push(`   💵 <code>${formatAssetPrice(current)}</code>${escapeHtml(formatPctSuffix(pct))} · ${direction}`);
-    } else if (open != null) {
-      lines.push(`   💵 <code>${formatAssetPrice(open)}</code> · ${direction}`);
-    } else {
-      lines.push("   <i>No price data</i>");
-    }
+  const { current, open, pct, outcome } = resolveWindowPrice(row, entry.spotPrice);
+  const parts = [heading];
 
-    if (window) {
-      const strike =
-        !isClosed && open != null && current != null && open !== current
-          ? `Strike ${formatAssetPrice(open)} · `
-          : open != null && current == null
-            ? `Strike ${formatAssetPrice(open)} · `
-            : "";
-      lines.push(`   ⏱ ${escapeHtml(`${strike}${window}`)}`);
-    }
-  } else {
-    lines.push("   <i>No price data</i>");
+  if (current != null) {
+    parts.push(
+      `<code>${formatAssetPrice(current)}</code>${escapeHtml(formatPctSuffix(pct))} ${formatOutcomeEmoji(outcome)}`,
+    );
+  } else if (open != null) {
+    parts.push(`<code>${formatAssetPrice(open)}</code> ${formatOutcomeEmoji(outcome)}`);
   }
 
-  const odds = formatMarketOdds(entry.market);
-  if (odds) lines.push(`   📊 ${escapeHtml(odds)}`);
+  const window = formatWindowShort(row.end_time);
+  if (window) parts.push(escapeHtml(window));
 
-  if (eventUrl && marketUrl && eventUrl !== marketUrl) {
-    lines.push(`   🔗 <a href="${eventUrl}">Event</a>`);
-  } else if (!headingUrl && row?.start_time) {
-    lines.push(`   <i>Event: ${escapeHtml(cryptoEventSlug(entry.asset, variant, row.start_time))}</i>`);
-  }
+  const odds = formatCompactOdds(entry.market);
+  if (odds) parts.push(escapeHtml(odds));
 
-  return lines;
+  return parts.join(" · ");
 }
 
 export function formatCryptoMarkets(
@@ -204,11 +184,7 @@ export function formatCryptoMarkets(
   botUsername?: string,
 ): string {
   const label = CRYPTO_VARIANT_LABELS[variant];
-  const lines = [
-    `🪙 <b>Crypto Up/Down</b> · ${label}`,
-    "<i>Spot window vs active Polymarket markets</i>",
-    "",
-  ];
+  const lines = [`🪙 <b>Crypto Up/Down</b> · ${label}`, ""];
 
   const visible = entries.filter((entry) => entry.priceRow || entry.event);
   if (visible.length === 0) {
@@ -216,10 +192,9 @@ export function formatCryptoMarkets(
     return lines.join("\n");
   }
 
-  visible.forEach((entry, i) => {
-    lines.push(...formatCryptoEntry(entry, variant, botUsername));
-    if (i < visible.length - 1) lines.push("");
-  });
+  for (const entry of visible) {
+    lines.push(formatCryptoEntry(entry, botUsername));
+  }
 
   return lines.join("\n");
 }
