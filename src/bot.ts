@@ -4,6 +4,7 @@ import { limit } from "@grammyjs/ratelimiter";
 import { apiThrottler } from "@grammyjs/transformer-throttler";
 import { env } from "./env.js";
 import { formatEvent, formatMarket, withLastUpdatedFooter } from "./format.js";
+import { parseStartPayload } from "./format/links.js";
 import { handleEventPagination } from "./handlers/event-pagination.js";
 import {
   EVENT_PAGE_SIZE,
@@ -11,7 +12,7 @@ import {
   cacheEvent,
 } from "./handlers/event-pagination.js";
 import {
-  fetchEventBySlug,
+  fetchEventByIdentifier,
   fetchMarketByConditionId,
   fetchMarketBySlug,
 } from "./handlers/polymarket-link.fetch.js";
@@ -78,9 +79,6 @@ export const bot = new Bot<BotContext>(env.BOT_TOKEN);
 bot.use(limit());
 bot.api.config.use(apiThrottler());
 
-const CONDITION_ID_RE = /^[0-9a-f]{64}$/;
-const ADDRESS_RE = /^[0-9a-f]{40}$/;
-
 async function replyWelcome(ctx: BotContext) {
   const welcome = [
     "👋 Welcome to <b>Polymarket Scanner Bot by Struct</b>!",
@@ -119,12 +117,8 @@ bot.command("start", async (ctx) => {
     return;
   }
 
-  const isConditionId = CONDITION_ID_RE.test(payload);
-  const isAddress = ADDRESS_RE.test(payload);
-  const isMarketSlug = payload.startsWith("m_") && payload.length > 2;
-  const isEventSlug = payload.startsWith("e_") && payload.length > 2;
-
-  if (!isConditionId && !isAddress && !isMarketSlug && !isEventSlug) {
+  const target = parseStartPayload(payload);
+  if (!target) {
     await replyWelcome(ctx);
     return;
   }
@@ -132,18 +126,25 @@ bot.command("start", async (ctx) => {
   const chatId = ctx.chat.id;
   await ctx.api.deleteMessage(chatId, ctx.message!.message_id).catch(() => {});
 
-  if (isAddress) {
-    await replyWithTrader(ctx, `0x${payload}`, { replyToMessage: false });
+  if (target.kind === "trader") {
+    await replyWithTrader(ctx, target.address, { replyToMessage: false });
     return;
   }
 
-  if (isEventSlug) {
-    const event = await fetchEventBySlug(decodeURIComponent(payload.slice(2)));
+  if (target.kind === "event") {
+    const identifier = target.id ?? target.slug;
+    if (!identifier) {
+      await ctx.api.sendMessage(chatId, "❌ Event not found.", { parse_mode: "HTML" });
+      return;
+    }
+
+    const event = await fetchEventByIdentifier(identifier);
     if (!event) {
       await ctx.api.sendMessage(chatId, "❌ Event not found.", { parse_mode: "HTML" });
       return;
     }
 
+    const eventSlug = getEventSlugFromRecord(event) ?? target.slug;
     const markets = event.markets ?? [];
     if (markets.length === 1) {
       const market = markets[0];
@@ -152,7 +153,7 @@ bot.command("start", async (ctx) => {
       const marketSlug = market.market_slug ?? market.slug;
       const refreshData = allocRefreshPayload({
         kind: "event",
-        slug: getEventSlugFromRecord(event) ?? decodeURIComponent(payload.slice(2)),
+        slug: eventSlug ?? identifier,
         page: 0,
         timeframe: tf,
       });
@@ -195,7 +196,7 @@ bot.command("start", async (ctx) => {
         : buildRefreshOnlyKeyboard(
             allocRefreshPayload({
               kind: "event",
-              slug: getEventSlugFromRecord(event) ?? decodeURIComponent(payload.slice(2)),
+              slug: eventSlug ?? identifier,
               page: 0,
             }),
           );
@@ -219,9 +220,9 @@ bot.command("start", async (ctx) => {
     return;
   }
 
-  const market = isConditionId
-    ? await fetchMarketByConditionId(`0x${payload}`)
-    : await fetchMarketBySlug(payload.slice(2));
+  const market = target.conditionId
+    ? await fetchMarketByConditionId(target.conditionId)
+    : await fetchMarketBySlug(target.slug!);
 
   if (!market) {
     await ctx.api.sendMessage(chatId, "❌ Market not found.", { parse_mode: "HTML" });
@@ -233,7 +234,7 @@ bot.command("start", async (ctx) => {
   const refreshData = allocMarketRefreshPayload(
     market,
     tf,
-    isConditionId ? `0x${payload}` : undefined,
+    target.conditionId,
   );
   const keyboard = marketSlug
     ? buildMarketDetailKeyboard(

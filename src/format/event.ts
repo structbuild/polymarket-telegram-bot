@@ -1,4 +1,5 @@
 import { getMarketProbability, getWinningOutcomeName } from "./outcomes.js";
+import { marketDeepLink } from "./links.js";
 import {
   escapeHtml,
   formatPercent,
@@ -83,12 +84,12 @@ function formatEventMarketMetricsSuffix(market: MarketRecord): string {
   return ` - ${parts.join(" | ")}`;
 }
 
-function buildMarketDeepLink(market: MarketRecord, botUsername?: string): string | null {
-  if (!botUsername) return null;
-  const conditionId = market.condition_id as string | undefined;
-  if (!conditionId) return null;
-  const id = conditionId.replace(/^0x/, "");
-  return `https://t.me/${botUsername}?start=${id}`;
+function buildMarketDeepLink(market: MarketRecord): string | null {
+  return marketDeepLink({
+    marketSlug: (market.market_slug ?? market.slug) as string | undefined,
+    conditionId: market.condition_id as string | undefined,
+    eventSlug: market.event_slug as string | undefined,
+  });
 }
 
 function formatEventMarketLine(market: MarketRecord, botUsername?: string): string {
@@ -98,13 +99,13 @@ function formatEventMarketLine(market: MarketRecord, botUsername?: string): stri
   if (isMarketResolved(market)) {
     const winnerName = getWinningOutcomeName(market);
     const outcome = winnerName ? ` → <i>${escapeHtml(winnerName)}</i>` : "";
-    const url = buildMarketDeepLink(market, botUsername);
+    const url = buildMarketDeepLink(market);
     const trophy = url ? `<a href="${url}">🏆</a>` : "🏆";
     return `${trophy} <b>${label}</b>${outcome}${metricsSuffix}`;
   }
 
   const pct = formatPercent(getMarketProbability(market) ?? 0);
-  const url = buildMarketDeepLink(market, botUsername);
+  const url = buildMarketDeepLink(market);
   const pctText = url
     ? `<a href="${url}">${pct}</a>`
     : `<code>${pct}</code>`;

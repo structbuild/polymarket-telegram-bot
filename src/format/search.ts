@@ -1,4 +1,5 @@
 import type { SearchResponse } from "@structbuild/sdk";
+import { eventDeepLink, marketDeepLink } from "./links.js";
 import { escapeHtml, formatCents, formatShortDate, formatUsd, statusEmoji } from "./shared.js";
 
 export type SearchEvent = NonNullable<SearchResponse["events"]>[number];
@@ -8,10 +9,11 @@ function getSearchMetrics(event: SearchEvent) {
   return event.metrics?.["30d"] ?? event.metrics?.["7d"] ?? event.metrics?.["24h"];
 }
 
-function buildEventUrl(event: SearchEvent, botUsername?: string): string | null {
-  const slug = event.event_slug ?? "";
-  if (!slug || !botUsername) return null;
-  return `https://t.me/${botUsername}?start=e_${encodeURIComponent(slug)}`;
+function buildEventUrl(event: SearchEvent): string | null {
+  return eventDeepLink({
+    eventSlug: event.event_slug,
+    eventId: event.id,
+  });
 }
 
 function formatEventMeta(event: SearchEvent): string | null {
@@ -39,7 +41,7 @@ function formatEventMeta(event: SearchEvent): string | null {
 
 function formatEventResult(event: SearchEvent, botUsername?: string): string {
   const title = escapeHtml(event.title ?? "Untitled Event");
-  const url = buildEventUrl(event, botUsername);
+  const url = buildEventUrl(event);
   const heading = url ? `<a href="${url}"><b>${title}</b></a>` : `<b>${title}</b>`;
   const lines = [`${statusEmoji(event.status)} ${heading}`];
   const meta = formatEventMeta(event);
@@ -76,15 +78,17 @@ function getMarketMetrics(market: SearchMarket) {
   return market.metrics?.["30d"] ?? market.metrics?.["7d"] ?? market.metrics?.["24h"];
 }
 
-function buildMarketUrl(market: SearchMarket, botUsername?: string): string | null {
-  const slug = market.market_slug ?? "";
-  if (!slug || !botUsername) return null;
-  return `https://t.me/${botUsername}?start=m_${slug}`;
+function buildMarketUrl(market: SearchMarket): string | null {
+  return marketDeepLink({
+    marketSlug: market.market_slug,
+    conditionId: market.condition_id,
+    eventSlug: market.event_slug,
+  });
 }
 
 function formatMarketResult(market: SearchMarket, botUsername?: string): string {
   const title = escapeHtml(market.question ?? market.title ?? "Untitled Market");
-  const url = buildMarketUrl(market, botUsername);
+  const url = buildMarketUrl(market);
   const heading = url ? `<a href="${url}"><b>${title}</b></a>` : `<b>${title}</b>`;
   const lines = [`${statusEmoji(market.status)} ${heading}`];
   const metrics = getMarketMetrics(market);

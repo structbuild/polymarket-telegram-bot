@@ -1,4 +1,5 @@
 import type { AssetPriceHistoryRow, Event, EventMarket } from "@structbuild/sdk";
+import { eventDeepLink, marketDeepLink } from "./links.js";
 import { escapeHtml, formatCents, formatPctSuffix } from "./shared.js";
 
 export const CRYPTO_ASSETS = ["BTC", "ETH", "XRP", "SOL", "DOGE", "BNB", "HYPE"] as const;
@@ -87,16 +88,6 @@ export function cryptoSeriesSlug(asset: CryptoAsset, variant: CryptoVariant): st
   return `${asset.toLowerCase()}-updown-${variant}`;
 }
 
-function marketDeepLink(slug: string | null | undefined, botUsername?: string): string | null {
-  if (!slug || !botUsername) return null;
-  return `https://t.me/${botUsername}?start=m_${slug}`;
-}
-
-function eventDeepLink(slug: string | null | undefined, botUsername?: string): string | null {
-  if (!slug || !botUsername) return null;
-  return `https://t.me/${botUsername}?start=e_${encodeURIComponent(slug)}`;
-}
-
 function formatAssetPrice(price: number): string {
   if (price >= 1000) {
     return `$${price.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
@@ -144,12 +135,19 @@ function pickActiveMarket(event: Event | null): EventMarket | null {
 
 function formatCryptoEntry(
   entry: CryptoMarketEntry,
-  botUsername?: string,
 ): string {
   const emoji = ASSET_EMOJI[entry.asset];
-  const eventSlug = entry.event?.event_slug;
-  const marketSlug = entry.market?.market_slug;
-  const url = marketDeepLink(marketSlug, botUsername) ?? eventDeepLink(eventSlug, botUsername);
+  const url =
+    marketDeepLink({
+      marketSlug: entry.market?.market_slug,
+      conditionId: entry.market?.condition_id,
+      eventSlug: entry.event?.event_slug,
+      eventId: entry.event?.id,
+    }) ??
+    eventDeepLink({
+      eventSlug: entry.event?.event_slug,
+      eventId: entry.event?.id,
+    });
   const label = `${emoji} ${entry.asset}`;
   const heading = url
     ? `<a href="${url}"><b>${escapeHtml(label)}</b></a>`
@@ -193,7 +191,7 @@ export function formatCryptoMarkets(
   }
 
   for (const entry of visible) {
-    lines.push(formatCryptoEntry(entry, botUsername));
+    lines.push(formatCryptoEntry(entry));
   }
 
   return lines.join("\n");
